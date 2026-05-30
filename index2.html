@@ -1,0 +1,644 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown & Mermaid Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg: #0d1117;
+        --bg-card: #161b22;
+        --text: #e6edf3;
+        --text-muted: #8b949e;
+        --accent: #6c63ff;
+        --accent-hover: #5a52d5;
+        --border: #30363d;
+        --code-bg: #1a1a2e;
+        --code-text: #d4d4d4;
+        --inline-code-bg: #1c2128;
+        --inline-code-text: #ff7b72;
+        --blockquote-bg: #1c2128;
+        --blockquote-border: #6c63ff;
+        --table-header-bg: #1c2128;
+        --table-border: #30363d;
+        --hr-color: #30363d;
+        --mermaid-error-bg: #2d0a0e;
+        --mermaid-error-border: #e94560;
+        --mermaid-error-text: #ff7b72;
+      }
+
+      body {
+        font-family:
+          "Segoe UI",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      /* Zoom Toolbar */
+      .zoom-toolbar {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px 12px;
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      }
+
+      .zoom-toolbar button {
+        width: 36px;
+        height: 36px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+
+      .zoom-toolbar button:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+      }
+
+      .zoom-toolbar .zoom-level {
+        font-size: 13px;
+        color: var(--text-muted);
+        min-width: 48px;
+        text-align: center;
+        font-weight: 600;
+        user-select: none;
+      }
+
+      /* Error State */
+      .error-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 40px;
+        text-align: center;
+      }
+
+      .error-container h1 {
+        font-size: 2.5em;
+        color: #e94560;
+        margin-bottom: 16px;
+      }
+
+      .error-container p {
+        font-size: 1.1em;
+        color: var(--text-muted);
+        max-width: 600px;
+        line-height: 1.6;
+        margin-bottom: 24px;
+      }
+
+      .error-container code {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        padding: 12px 20px;
+        border-radius: 8px;
+        font-family: "Fira Code", "Consolas", monospace;
+        font-size: 0.85em;
+        color: var(--text);
+        display: block;
+        word-break: break-all;
+        max-width: 800px;
+      }
+
+      .btn {
+        padding: 10px 24px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 15px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.2s;
+        display: inline-block;
+        margin-top: 16px;
+      }
+
+      .btn:hover {
+        background: var(--accent-hover);
+      }
+
+      /* Content Container */
+      #content-wrapper {
+        transform-origin: top center;
+        transition: transform 0.1s ease;
+      }
+
+      #content {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 40px 32px;
+        line-height: 1.7;
+      }
+
+      /* Content Styles - Dark Theme */
+      #content h1 {
+        font-size: 2em;
+        border-bottom: 2px solid var(--hr-color);
+        padding-bottom: 0.3em;
+        margin-top: 1em;
+        margin-bottom: 0.6em;
+        color: var(--text);
+      }
+
+      #content h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid var(--hr-color);
+        padding-bottom: 0.3em;
+        margin-top: 0.8em;
+        margin-bottom: 0.5em;
+        color: var(--text);
+      }
+
+      #content h3 {
+        font-size: 1.25em;
+        margin-top: 0.7em;
+        margin-bottom: 0.4em;
+        color: var(--text);
+      }
+
+      #content h4,
+      #content h5,
+      #content h6 {
+        margin-top: 0.6em;
+        margin-bottom: 0.3em;
+        color: var(--text);
+      }
+
+      #content p {
+        margin-bottom: 1em;
+        color: var(--text);
+      }
+
+      #content a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      #content a:hover {
+        text-decoration: underline;
+      }
+
+      #content code {
+        background: var(--inline-code-bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Fira Code", "Consolas", monospace;
+        font-size: 0.9em;
+        color: var(--inline-code-text);
+      }
+
+      #content pre {
+        background: var(--code-bg);
+        color: var(--code-text);
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin-bottom: 1em;
+        border: 1px solid var(--border);
+      }
+
+      #content pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+
+      #content blockquote {
+        border-left: 4px solid var(--blockquote-border);
+        padding: 10px 20px;
+        margin: 1em 0;
+        background: var(--blockquote-bg);
+        color: var(--text-muted);
+      }
+
+      #content ul,
+      #content ol {
+        padding-left: 2em;
+        margin-bottom: 1em;
+      }
+
+      #content li {
+        margin-bottom: 0.3em;
+        color: var(--text);
+      }
+
+      #content table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 1em;
+      }
+
+      #content th,
+      #content td {
+        border: 1px solid var(--table-border);
+        padding: 10px 14px;
+        text-align: left;
+      }
+
+      #content th {
+        background: var(--table-header-bg);
+        font-weight: 600;
+        color: var(--text);
+      }
+
+      #content td {
+        color: var(--text);
+      }
+
+      #content img {
+        max-width: 100%;
+        border-radius: 8px;
+      }
+
+      #content hr {
+        border: none;
+        border-top: 2px solid var(--hr-color);
+        margin: 2em 0;
+      }
+
+      /* Mermaid Diagram Styles */
+      #content svg[id^="mermaid-diagram-"] {
+        display: block;
+        margin: 0 auto;
+      }
+
+      #content svg {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+      }
+
+      #content .mermaid-error {
+        color: var(--mermaid-error-text);
+        background: var(--mermaid-error-bg);
+        padding: 16px;
+        border-radius: 8px;
+        border: 1px solid var(--mermaid-error-border);
+        text-align: left;
+      }
+
+      /* Loading */
+      .loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        font-size: 1.2em;
+        color: var(--text-muted);
+      }
+
+      .loading::after {
+        content: "";
+        width: 24px;
+        height: 24px;
+        border: 3px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 12px;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Scrollbar */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
+      }
+
+      /* Print styles */
+      @media print {
+        #content {
+          padding: 20px;
+        }
+        .zoom-toolbar {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="loading" id="loading">Rendering content...</div>
+    <div id="content-wrapper">
+      <div id="content" style="display: none"></div>
+    </div>
+    <div class="error-container" id="error" style="display: none">
+      <h1>📄 No Content Found</h1>
+      <p>
+        No markdown content was found in the URL. Please provide base64-encoded
+        markdown content via the URL query parameter.
+      </p>
+      <p>Usage examples:</p>
+      <code>index2.html?data=BASE64_ENCODED_MARKDOWN</code>
+      <br />
+      <code>index2.html#BASE64_ENCODED_MARKDOWN</code>
+      <br />
+      <code>index2.html#pako:DEFLATE_BASE64_ENCODED</code>
+      <a href="index.html" class="btn">← Back to Editor</a>
+    </div>
+
+    <!-- Zoom Toolbar -->
+    <div class="zoom-toolbar" id="zoomToolbar" style="display: none">
+      <button onclick="zoomOut()" title="Zoom out">−</button>
+      <span class="zoom-level" id="zoomLevel">100%</span>
+      <button onclick="zoomIn()" title="Zoom in">+</button>
+      <button onclick="zoomReset()" title="Reset zoom">⟲</button>
+    </div>
+
+    <script>
+      // Zoom functionality
+      let currentZoom = 1;
+      const zoomStep = 0.15;
+      const minZoom = 0.3;
+      const maxZoom = 3;
+
+      function updateZoom() {
+        const wrapper = document.getElementById("content-wrapper");
+        wrapper.style.transform = "scale(" + currentZoom + ")";
+        document.getElementById("zoomLevel").textContent =
+          Math.round(currentZoom * 100) + "%";
+      }
+
+      function zoomIn() {
+        currentZoom = Math.min(maxZoom, currentZoom + zoomStep);
+        updateZoom();
+      }
+
+      function zoomOut() {
+        currentZoom = Math.max(minZoom, currentZoom - zoomStep);
+        updateZoom();
+      }
+
+      function zoomReset() {
+        currentZoom = 1;
+        updateZoom();
+      }
+
+      // Mouse wheel zoom
+      document.addEventListener(
+        "wheel",
+        function (e) {
+          if (e.ctrlKey) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+              currentZoom = Math.min(maxZoom, currentZoom + zoomStep * 0.5);
+            } else {
+              currentZoom = Math.max(minZoom, currentZoom - zoomStep * 0.5);
+            }
+            updateZoom();
+          }
+        },
+        { passive: false },
+      );
+
+      // Initialize Mermaid with dark theme
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "dark",
+        securityLevel: "loose",
+        fontFamily: "Segoe UI, sans-serif",
+      });
+
+      let renderCount = 0;
+
+      // Custom renderer for marked
+      const renderer = new marked.Renderer();
+
+      // Override code block handler to detect mermaid
+      renderer.code = function (token) {
+        let code, language;
+        if (typeof token === "object" && token !== null) {
+          code = token.text;
+          language = token.lang;
+        } else {
+          code = token;
+          language = arguments[1];
+        }
+
+        // Escape HTML entities for safe rendering
+        const esc = code
+          .replace(/&/g, "&" + "amp;")
+          .replace(/</g, "&" + "lt;")
+          .replace(/>/g, "&" + "gt;");
+
+        if (language === "mermaid") {
+          const id = "mermaid-diagram-" + renderCount++;
+          return '<div class="mermaid" id="' + id + '">' + esc + "</div>";
+        }
+        if (language) {
+          return (
+            '<pre><code class="language-' +
+            language +
+            '">' +
+            esc +
+            "</code></pre>"
+          );
+        }
+        return "<pre><code>" + esc + "</code></pre>";
+      };
+
+      // Configure marked
+      marked.setOptions({
+        renderer: renderer,
+        gfm: true,
+        breaks: true,
+      });
+
+      // Convert URL-safe base64 back to standard base64
+      function urlSafeToBase64(str) {
+        return (
+          str.replace(/-/g, "+").replace(/_/g, "/") +
+          "=".repeat((4 - (str.length % 4)) % 4)
+        );
+      }
+
+      // Decode base64 to string (supports UTF-8)
+      function decodeBase64(base64) {
+        try {
+          const standardBase64 = urlSafeToBase64(base64);
+          const decoded = atob(standardBase64);
+          const bytes = new Uint8Array(decoded.length);
+          for (let i = 0; i < decoded.length; i++) {
+            bytes[i] = decoded.charCodeAt(i);
+          }
+          return new TextDecoder("utf-8").decode(bytes);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // Decode pako (deflate) compressed base64 data
+      async function decodePako(base64) {
+        try {
+          const standardBase64 = urlSafeToBase64(base64);
+          const decoded = atob(standardBase64);
+          const bytes = new Uint8Array(decoded.length);
+          for (let i = 0; i < decoded.length; i++) {
+            bytes[i] = decoded.charCodeAt(i);
+          }
+          if (typeof pako !== "undefined") {
+            const decompressed = pako.inflate(bytes, { to: "string" });
+            return decompressed;
+          }
+          const ds = new DecompressionStream("deflate");
+          const writer = ds.writable.getWriter();
+          writer.write(bytes);
+          writer.close();
+          const reader = ds.readable.getReader();
+          const chunks = [];
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+          }
+          const totalLength = chunks.reduce(
+            (acc, chunk) => acc + chunk.length,
+            0,
+          );
+          const result = new Uint8Array(totalLength);
+          let offset = 0;
+          for (const chunk of chunks) {
+            result.set(chunk, offset);
+            offset += chunk.length;
+          }
+          return new TextDecoder("utf-8").decode(result);
+        } catch (e) {
+          return null;
+        }
+      }
+
+      // Get data from URL
+      async function getDataFromURL() {
+        const hash = window.location.hash.slice(1);
+        if (hash) {
+          if (hash.startsWith("pako:")) {
+            const base64 = hash.substring(5);
+            const result = await decodePako(base64);
+            if (result) return result;
+          }
+          const decoded = decodeBase64(hash);
+          if (decoded) return decoded;
+        }
+
+        const params = new URLSearchParams(window.location.search);
+        const dataParam = params.get("data");
+        if (dataParam) {
+          const decoded = decodeBase64(dataParam);
+          if (decoded) return decoded;
+        }
+
+        const pakoParam = params.get("pako");
+        if (pakoParam) {
+          const result = await decodePako(pakoParam);
+          if (result) return result;
+        }
+
+        return null;
+      }
+
+      // Render content
+      async function renderContent(markdown) {
+        const loading = document.getElementById("loading");
+        const content = document.getElementById("content");
+        const error = document.getElementById("error");
+        const zoomToolbar = document.getElementById("zoomToolbar");
+
+        try {
+          const html = marked.parse(markdown);
+          content.innerHTML = html;
+
+          const mermaidElements = content.querySelectorAll(".mermaid");
+          for (const el of mermaidElements) {
+            try {
+              const graphDefinition = el.textContent;
+              const { svg } = await mermaid.render(
+                el.id + "-svg",
+                graphDefinition,
+              );
+              el.innerHTML = svg;
+              el.classList.remove("mermaid");
+            } catch (err) {
+              el.innerHTML =
+                '<div class="mermaid-error"><strong>Mermaid Error:</strong> ' +
+                (err.message || err) +
+                "</div>";
+              el.classList.remove("mermaid");
+            }
+          }
+
+          loading.style.display = "none";
+          content.style.display = "block";
+          zoomToolbar.style.display = "flex";
+          document.title =
+            markdown.split("\n")[0].replace(/^#+\s*/, "") ||
+            "Markdown & Mermaid Viewer";
+        } catch (err) {
+          loading.style.display = "none";
+          error.style.display = "flex";
+          console.error("Render error:", err);
+        }
+      }
+
+      // Main
+      async function main() {
+        const markdown = await getDataFromURL();
+        if (markdown) {
+          await renderContent(markdown);
+        } else {
+          document.getElementById("loading").style.display = "none";
+          document.getElementById("error").style.display = "flex";
+        }
+      }
+
+      main();
+    </script>
+  </body>
+</html>

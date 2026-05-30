@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Markdown & Mermaid Live Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg-primary: #1a1a2e;
+        --bg-secondary: #16213e;
+        --bg-editor: #0f0f23;
+        --bg-preview: #ffffff;
+        --text-primary: #e0e0e0;
+        --text-editor: #d4d4d4;
+        --accent: #6c63ff;
+        --accent-hover: #5a52d5;
+        --border: #2a2a4a;
+        --header-bg: #0d1117;
+      }
+
+      body {
+        font-family:
+          "Segoe UI",
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      /* Header */
+      .header {
+        background: var(--header-bg);
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+        background: linear-gradient(135deg, #6c63ff, #e94560);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn {
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.2s;
+      }
+
+      .btn:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .btn-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .btn-primary:hover {
+        background: var(--accent-hover);
+      }
+
+      /* Main Container */
+      .container {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* Editor Panel */
+      .editor-panel {
+        display: flex;
+        flex-direction: column;
+        width: 50%;
+        border-right: 2px solid var(--accent);
+        position: relative;
+      }
+
+      .panel-header {
+        background: var(--bg-secondary);
+        padding: 8px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--accent);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-shrink: 0;
+      }
+
+      .panel-header .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+        display: inline-block;
+        margin-right: 8px;
+        animation: pulse 2s infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      #editor {
+        flex: 1;
+        background: var(--bg-editor);
+        color: var(--text-editor);
+        border: none;
+        padding: 20px;
+        font-family:
+          "Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
+        font-size: 14px;
+        line-height: 1.7;
+        resize: none;
+        outline: none;
+        tab-size: 2;
+        overflow-y: auto;
+      }
+
+      #editor::placeholder {
+        color: #555;
+      }
+
+      /* Preview Panel */
+      .preview-panel {
+        display: flex;
+        flex-direction: column;
+        width: 50%;
+        overflow: hidden;
+      }
+
+      #preview {
+        flex: 1;
+        background: var(--bg-preview);
+        color: #1a1a2a;
+        padding: 30px;
+        overflow-y: auto;
+        line-height: 1.7;
+      }
+
+      /* Markdown Preview Styles */
+      #preview h1 {
+        font-size: 2em;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.3em;
+        margin-top: 1em;
+        margin-bottom: 0.6em;
+        color: #1a1a2e;
+      }
+
+      #preview h2 {
+        font-size: 1.5em;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.3em;
+        margin-top: 0.8em;
+        margin-bottom: 0.5em;
+        color: #16213e;
+      }
+
+      #preview h3 {
+        font-size: 1.25em;
+        margin-top: 0.7em;
+        margin-bottom: 0.4em;
+        color: #2a2a4a;
+      }
+
+      #preview h4,
+      #preview h5,
+      #preview h6 {
+        margin-top: 0.6em;
+        margin-bottom: 0.3em;
+        color: #333;
+      }
+
+      #preview p {
+        margin-bottom: 1em;
+      }
+
+      #preview a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      #preview a:hover {
+        text-decoration: underline;
+      }
+
+      #preview code {
+        background: #f0f0f5;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: "Fira Code", "Consolas", monospace;
+        font-size: 0.9em;
+        color: #e94560;
+      }
+
+      #preview pre {
+        background: #1a1a2e;
+        color: #d4d4d4;
+        padding: 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        margin-bottom: 1em;
+      }
+
+      #preview pre code {
+        background: none;
+        color: inherit;
+        padding: 0;
+      }
+
+      #preview blockquote {
+        border-left: 4px solid var(--accent);
+        padding: 10px 20px;
+        margin: 1em 0;
+        background: #f8f8ff;
+        color: #555;
+      }
+
+      #preview ul,
+      #preview ol {
+        padding-left: 2em;
+        margin-bottom: 1em;
+      }
+
+      #preview li {
+        margin-bottom: 0.3em;
+      }
+
+      #preview table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-bottom: 1em;
+      }
+
+      #preview th,
+      #preview td {
+        border: 1px solid #ddd;
+        padding: 10px 14px;
+        text-align: left;
+      }
+
+      #preview th {
+        background: #f0f0f5;
+        font-weight: 600;
+      }
+
+      #preview img {
+        max-width: 100%;
+        border-radius: 8px;
+      }
+
+      #preview hr {
+        border: none;
+        border-top: 2px solid #eee;
+        margin: 2em 0;
+      }
+
+      /* Mermaid Diagram Styles */
+      #preview svg[id^="mermaid-diagram-"] {
+        display: block;
+        margin: 0 auto;
+      }
+
+      #preview svg {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+      }
+
+      #preview .mermaid-error {
+        color: #e94560;
+        background: #fff0f3;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #e94560;
+      }
+
+      /* Scrollbar Styles */
+      #editor::-webkit-scrollbar,
+      #preview::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      #editor::-webkit-scrollbar-track {
+        background: var(--bg-editor);
+      }
+
+      #editor::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+
+      #editor::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
+      }
+
+      #preview::-webkit-scrollbar-track {
+        background: #f5f5f5;
+      }
+
+      #preview::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 4px;
+      }
+
+      #preview::-webkit-scrollbar-thumb:hover {
+        background: #aaa;
+      }
+
+      /* Status Bar */
+      .status-bar {
+        background: var(--header-bg);
+        padding: 4px 16px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #666;
+        border-top: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .container {
+          flex-direction: column;
+        }
+        .editor-panel,
+        .preview-panel {
+          width: 100%;
+          height: 50%;
+        }
+        .editor-panel {
+          border-right: none;
+          border-bottom: 2px solid var(--accent);
+        }
+      }
+
+      /* Drag handle */
+      .drag-handle {
+        width: 4px;
+        cursor: col-resize;
+        background: var(--border);
+        position: absolute;
+        right: -2px;
+        top: 0;
+        bottom: 0;
+        z-index: 10;
+        transition: background 0.2s;
+      }
+
+      .drag-handle:hover,
+      .drag-handle.active {
+        background: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>📝 Markdown & Mermaid Live Editor</h1>
+      <div class="header-actions">
+        <button class="btn" onclick="loadSample()" title="Load sample content">
+          📋 Sample
+        </button>
+        <button class="btn" onclick="clearEditor()" title="Clear editor">
+          🗑️ Clear
+        </button>
+        <button
+          class="btn"
+          onclick="copyToClipboard()"
+          title="Copy markdown to clipboard"
+        >
+          📋 Copy
+        </button>
+        <button
+          class="btn btn-primary"
+          onclick="downloadMarkdown()"
+          title="Download as .md file"
+        >
+          💾 Download
+        </button>
+        <button
+          class="btn"
+          onclick="copyShareLink()"
+          title="Copy shareable link to clipboard"
+          style="background: #e94560; border-color: #e94560; color: white"
+        >
+          🔗 Share
+        </button>
+        <button
+          class="btn"
+          onclick="openShareLink()"
+          title="Open shareable full-screen view"
+          style="background: #0d6efd; border-color: #0d6efd; color: white"
+        >
+          ▶ View
+        </button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="editor-panel" id="editorPanel">
+        <div class="panel-header">
+          <span><span class="dot"></span>MARKDOWN EDITOR</span>
+          <span id="charCount">0 chars</span>
+        </div>
+        <textarea
+          id="editor"
+          placeholder="Type your Markdown here... Use ```mermaid code blocks for diagrams"
+          spellcheck="false"
+        ></textarea>
+        <div class="drag-handle" id="dragHandle"></div>
+      </div>
+      <div class="preview-panel">
+        <div class="panel-header">
+          <span><span class="dot"></span>LIVE PREVIEW</span>
+          <span id="diagramCount">0 diagrams</span>
+        </div>
+        <div id="preview"></div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="statusText">Ready</span>
+      <span>Markdown + Mermaid</span>
+    </div>
+
+    <script>
+      // Initialize Mermaid
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: "default",
+        securityLevel: "loose",
+        fontFamily: "Segoe UI, sans-serif",
+      });
+
+      let renderCount = 0;
+
+      // Custom renderer for marked
+      const renderer = new marked.Renderer();
+
+      // Override code block handler to detect mermaid
+      // marked v9+ passes an object { text, lang } as first argument
+      renderer.code = function (token) {
+        // Support both old (code, language) and new ({ text, lang }) API
+        let code, language;
+        if (typeof token === "object" && token !== null) {
+          code = token.text;
+          language = token.lang;
+        } else {
+          code = token;
+          language = arguments[1];
+        }
+
+        // Escape HTML entities for safe rendering using string concat to avoid formatter issues
+        const esc = code
+          .replace(/&/g, "&" + "amp;")
+          .replace(/</g, "&" + "lt;")
+          .replace(/>/g, "&" + "gt;");
+
+        if (language === "mermaid") {
+          const id = "mermaid-diagram-" + renderCount++;
+          return '<div class="mermaid" id="' + id + '">' + esc + "</div>";
+        }
+        // Regular code block
+        if (language) {
+          return (
+            '<pre><code class="language-' +
+            language +
+            '">' +
+            esc +
+            "</code></pre>"
+          );
+        }
+        return "<pre><code>" + esc + "</code></pre>";
+      };
+
+      // Configure marked
+      marked.setOptions({
+        renderer: renderer,
+        gfm: true,
+        breaks: true,
+      });
+
+      // DOM elements
+      const editor = document.getElementById("editor");
+      const preview = document.getElementById("preview");
+      const charCount = document.getElementById("charCount");
+      const diagramCount = document.getElementById("diagramCount");
+      const statusText = document.getElementById("statusText");
+
+      // Debounce timer
+      let debounceTimer;
+
+      // Main render function
+      async function renderPreview() {
+        const markdown = editor.value;
+
+        // Update char count
+        charCount.textContent = `${markdown.length} chars`;
+
+        try {
+          // Parse markdown
+          const html = marked.parse(markdown);
+
+          // Set preview content
+          preview.innerHTML = html;
+
+          // Find and render mermaid diagrams
+          const mermaidElements = preview.querySelectorAll(".mermaid");
+          diagramCount.textContent = `${mermaidElements.length} diagram${mermaidElements.length !== 1 ? "s" : ""}`;
+
+          for (const el of mermaidElements) {
+            try {
+              const graphDefinition = el.textContent;
+              const { svg } = await mermaid.render(
+                el.id + "-svg",
+                graphDefinition,
+              );
+              el.innerHTML = svg;
+              el.classList.remove("mermaid");
+            } catch (err) {
+              el.innerHTML = `<div class="mermaid-error"><strong>Mermaid Error:</strong> ${err.message || err}</div>`;
+              el.classList.remove("mermaid");
+            }
+          }
+
+          statusText.textContent = `Rendered at ${new Date().toLocaleTimeString()}`;
+        } catch (err) {
+          statusText.textContent = `Error: ${err.message}`;
+        }
+      }
+
+      // Debounced render
+      function debouncedRender() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(renderPreview, 300);
+      }
+
+      // Event listeners
+      editor.addEventListener("input", debouncedRender);
+
+      // Tab support in editor
+      editor.addEventListener("keydown", function (e) {
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const start = this.selectionStart;
+          const end = this.selectionEnd;
+          this.value =
+            this.value.substring(0, start) + "  " + this.value.substring(end);
+          this.selectionStart = this.selectionEnd = start + 2;
+          debouncedRender();
+        }
+      });
+
+      // Load sample content
+      function loadSample() {
+        editor.value = `# Project Architecture
+
+## Overview
+
+This document describes the architecture of our web application system.
+
+## Flow Diagram
+
+\`\`\`mermaid
+flowchart TD
+    A[User] --> B[Web App]
+    B --> C[API Gateway]
+    C --> D[Auth Service]
+    C --> E[Data Service]
+    D --> F[(User DB)]
+    E --> G[(Main DB)]
+    E --> H[Cache Layer]
+    H --> I[Redis]
+\`\`\`
+
+## Sequence Diagram
+
+\`\`\`mermaid
+sequenceDiagram
+    participant U as User
+    participant W as Web App
+    participant A as API
+    participant D as Database
+
+    U->>W: Login Request
+    W->>A: Authenticate
+    A->>D: Query User
+    D-->>A: User Data
+    A-->>W: JWT Token
+    W-->>U: Dashboard
+
+    U->>W: Fetch Data
+    W->>A: GET /api/data
+    A->>D: SELECT * FROM data
+    D-->>A: Results
+    A-->>W: JSON Response
+    W-->>U: Display Data
+\`\`\`
+
+## Key Components
+
+| Component | Technology | Purpose |
+|-----------|-----------|---------|
+| Frontend | React | User Interface |
+| API | Node.js | Business Logic |
+| Auth | JWT | Authentication |
+| Database | PostgreSQL | Data Storage |
+| Cache | Redis | Performance |
+
+## State Diagram
+
+\`\`\`mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Processing : Submit
+    Processing --> Success : OK
+    Processing --> Error : Fail
+    Success --> Idle : Reset
+    Error --> Idle : Retry
+    Idle --> [*] : Logout
+\`\`\`
+
+## Class Diagram
+
+\`\`\`mermaid
+classDiagram
+    class User {
+        +String name
+        +String email
+        +login()
+        +logout()
+    }
+    class Order {
+        +String id
+        +Date date
+        +create()
+        +cancel()
+    }
+    class Product {
+        +String name
+        +Float price
+        +getDetails()
+    }
+    User --> Order : places
+    Order --> Product : contains
+\`\`\`
+
+> **Note:** All services communicate via REST APIs and are deployed using Docker containers.
+
+---
+*Last updated: ${new Date().toLocaleDateString()}*
+`;
+
+        renderPreview();
+      }
+
+      // Clear editor
+      function clearEditor() {
+        if (confirm("Are you sure you want to clear the editor?")) {
+          editor.value = "";
+          renderPreview();
+        }
+      }
+
+      // Copy to clipboard
+      function copyToClipboard() {
+        navigator.clipboard.writeText(editor.value).then(() => {
+          statusText.textContent = "Copied to clipboard!";
+          setTimeout(() => {
+            statusText.textContent = "Ready";
+          }, 2000);
+        });
+      }
+
+      // Download as .md file
+      function downloadMarkdown() {
+        const blob = new Blob([editor.value], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "document.md";
+        a.click();
+        URL.revokeObjectURL(url);
+        statusText.textContent = "Downloaded!";
+      }
+
+      // Encode markdown to base64 (UTF-8 safe)
+      function encodeToBase64(str) {
+        const bytes = new TextEncoder().encode(str);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      // Copy shareable link to clipboard
+      function copyShareLink() {
+        const markdown = editor.value;
+        if (!markdown.trim()) {
+          statusText.textContent = "Nothing to share!";
+          return;
+        }
+        try {
+          const bytes = new TextEncoder().encode(markdown);
+          const compressed = pako.deflate(bytes);
+          let binary = "";
+          for (let i = 0; i < compressed.length; i++) {
+            binary += String.fromCharCode(compressed[i]);
+          }
+          const base64 = btoa(binary)
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+          const shareUrl =
+            window.location.origin +
+            window.location.pathname.replace("index.html", "index2.html") +
+            "#pako:" +
+            base64;
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            statusText.textContent = "Share link copied to clipboard!";
+            setTimeout(() => {
+              statusText.textContent = "Ready";
+            }, 3000);
+          });
+        } catch (err) {
+          const base64 = encodeToBase64(markdown);
+          const shareUrl =
+            window.location.origin +
+            window.location.pathname.replace("index.html", "index2.html") +
+            "?data=" +
+            encodeURIComponent(base64);
+          navigator.clipboard.writeText(shareUrl).then(() => {
+            statusText.textContent = "Share link copied to clipboard!";
+            setTimeout(() => {
+              statusText.textContent = "Ready";
+            }, 3000);
+          });
+        }
+      }
+
+      // Open shareable link in new tab (full-screen viewer)
+      function openShareLink() {
+        const markdown = editor.value;
+        if (!markdown.trim()) {
+          statusText.textContent = "Nothing to share!";
+          return;
+        }
+        try {
+          // Compress with pako and encode to base64
+          const bytes = new TextEncoder().encode(markdown);
+          const compressed = pako.deflate(bytes);
+          let binary = "";
+          for (let i = 0; i < compressed.length; i++) {
+            binary += String.fromCharCode(compressed[i]);
+          }
+          const base64 = btoa(binary)
+            .replace(/\+/g, "-")
+            .replace(/\//g, "_")
+            .replace(/=+$/, "");
+          const shareUrl =
+            window.location.origin +
+            window.location.pathname.replace("index.html", "index2.html") +
+            "#pako:" +
+            base64;
+          window.open(shareUrl, "_blank");
+          statusText.textContent = "Share link opened!";
+          setTimeout(() => {
+            statusText.textContent = "Ready";
+          }, 2000);
+        } catch (err) {
+          // Fallback: plain base64
+          const base64 = encodeToBase64(markdown);
+          const shareUrl =
+            window.location.origin +
+            window.location.pathname.replace("index.html", "index2.html") +
+            "?data=" +
+            encodeURIComponent(base64);
+          window.open(shareUrl, "_blank");
+          statusText.textContent = "Share link opened!";
+          setTimeout(() => {
+            statusText.textContent = "Ready";
+          }, 2000);
+        }
+      }
+
+      // Draggable divider
+      const dragHandle = document.getElementById("dragHandle");
+      const editorPanel = document.getElementById("editorPanel");
+      let isDragging = false;
+
+      dragHandle.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        dragHandle.classList.add("active");
+        document.body.style.cursor = "col-resize";
+        document.body.style.userSelect = "none";
+        e.preventDefault();
+      });
+
+      document.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        const container = document.querySelector(".container");
+        const containerRect = container.getBoundingClientRect();
+        const percentage =
+          ((e.clientX - containerRect.left) / containerRect.width) * 100;
+        if (percentage > 20 && percentage < 80) {
+          editorPanel.style.width = percentage + "%";
+        }
+      });
+
+      document.addEventListener("mouseup", () => {
+        isDragging = false;
+        dragHandle.classList.remove("active");
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+      });
+
+      // Load sample on start
+      loadSample();
+    </script>
+  </body>
+</html>
