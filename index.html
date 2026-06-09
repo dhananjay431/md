@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
       * {
         margin: 0;
@@ -453,7 +454,12 @@
         <div class="drag-handle" id="dragHandle"></div>
       </div>
       <div class="preview-panel">
-        <div class="panel-header">
+        <div
+          class="panel-header"
+          style="cursor: pointer"
+          onclick="downloadPreviewPNG()"
+          title="Click to download preview as PNG"
+        >
           <span><span class="dot"></span>LIVE PREVIEW</span>
           <span id="diagramCount">0 diagrams</span>
         </div>
@@ -725,6 +731,59 @@ classDiagram
         a.click();
         URL.revokeObjectURL(url);
         statusText.textContent = "Downloaded!";
+      }
+
+      // Download preview as PNG (full content, not just visible area)
+      function downloadPreviewPNG() {
+        const previewEl = document.getElementById("preview");
+        if (!previewEl || !previewEl.innerHTML.trim()) {
+          statusText.textContent = "Nothing to export!";
+          return;
+        }
+        statusText.textContent = "Capturing preview...";
+
+        // Temporarily expand the element to capture full scrollable content
+        const origOverflow = previewEl.style.overflow;
+        const origHeight = previewEl.style.height;
+        const origMaxHeight = previewEl.style.maxHeight;
+        previewEl.style.overflow = "visible";
+        previewEl.style.height = "auto";
+        previewEl.style.maxHeight = "none";
+
+        html2canvas(previewEl, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          logging: false,
+          scrollY: 0,
+          windowHeight: previewEl.scrollHeight,
+        })
+          .then((canvas) => {
+            // Restore original styles
+            previewEl.style.overflow = origOverflow;
+            previewEl.style.height = origHeight;
+            previewEl.style.maxHeight = origMaxHeight;
+
+            canvas.toBlob((blob) => {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "preview.png";
+              a.click();
+              URL.revokeObjectURL(url);
+              statusText.textContent = "Preview downloaded as PNG!";
+              setTimeout(() => {
+                statusText.textContent = "Ready";
+              }, 2000);
+            }, "image/png");
+          })
+          .catch((err) => {
+            // Restore original styles on error too
+            previewEl.style.overflow = origOverflow;
+            previewEl.style.height = origHeight;
+            previewEl.style.maxHeight = origMaxHeight;
+            statusText.textContent = "Error: " + err.message;
+          });
       }
 
       // Encode markdown to base64 (UTF-8 safe)
