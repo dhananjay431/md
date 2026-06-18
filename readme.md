@@ -1,51 +1,56 @@
-Got it — you want a **Markdown (`.md`) file** that explains the project/functionality and includes a **Mermaid flowchart diagram** inside the Markdown file.
-
-## Goal
-
-Create a `.md` documentation file, likely something like `README.md`, that explains:
-
-- What `index.html` does
-- What `index2.html` does
-- How Markdown + Mermaid rendering works
-- How the Share URL/base64 flow works
-- How to use Mermaid diagrams inside Markdown
-
-## Mermaid flowchart to include
-
-The `.md` file will include a fenced Mermaid block like this:
-
-````md
 ```mermaid
 flowchart TD
-    A[User writes Markdown in index.html] --> B[Live Preview renders Markdown]
-    B --> C{Contains Mermaid block?}
-    C -->|Yes| D[Mermaid renders SVG diagram]
-    C -->|No| E[Render normal Markdown]
-    D --> F[Click Share]
-    E --> F
-    F --> G[Compress + Base64 encode content]
-    G --> H[Open index2.html with encoded URL]
-    H --> I[Decode content]
-    I --> J[Render fullscreen Markdown + Mermaid]
+    A["User navigates to<br/>/transaction-details/:id/matching"] --> B["TransactionDetailsModule<br/>(lazy-loaded)"]
+    B --> C["TransactionDetailsComponent<br/>(parent route)"]
+    C --> D["Resolvers & Guards"]
+    D --> D1["LoadFormRestrictionResolver"]
+    D --> D2["SapCallConfigResolver"]
+    D --> D3["ActivateInvoiceChildGuard<br/>(canActivateChild)"]
+    D1 & D2 & D3 --> E["MatchingModule<br/>(lazy-loaded child route)"]
+
+    E --> F["MatchingComponent.ngOnInit()"]
+
+    F --> G["accessControlService.getAccessControl<br/>('MATCH_TAB', 'tab')"]
+    G --> H["InvoiceService.isDetailsDisabled(item)"]
+    H --> I{"Country_Code === 'VN'<br/>AND Status_ID == '1513'?"}
+    I -->|Yes| J["disabledAll = true"]
+    I -->|No| K["disabledAll = result from<br/>isDetailsDisabled()"]
+
+    J & K --> L["getInvoiceMatchedLines()"]
+
+    L --> M["InvoiceService.getInvoiceMatchingLines()"]
+    M --> N{"Response has tuple<br/>AND data exists?"}
+
+    N -->|No & intialLoad=true| O["computeMatching()"]
+    N -->|Yes| P["Parse matched lines<br/>from response.tuple"]
+
+    O --> Q["InvoiceService.computeMatching()"]
+    Q --> R{"Success?"}
+    R -->|Yes| L2["getInvoiceMatchedLines()<br/>(re-fetch from table)"]
+    R -->|Error| S2["markAsLoaded()<br/>console.log(error)"]
+
+    P --> T["setLineStatusIcon(mLines)"]
+    T --> U{"STATUS_ID == '105'?"}
+    U -->|Yes| V["STATUS_ICON = 'check_circle'<br/>(green - matched)"]
+    U -->|No| W["STATUS_ICON = 'cancel'<br/>(red - unmatched)"]
+    V & W --> X["tableSource = new MatTableDataSource(mLines)"]
+
+    L2 --> N
+
+    X --> Y["markAsLoaded()<br/>(intialLoad = false)"]
+
+    Y --> Z{"CountryMatching.MATCHING_TYPE<br/>== 'TWO'?"}
+    Z -->|Yes| AA["Remove GRN columns:<br/>GRN_AMT, GRN_QTY,<br/>GRN_UNIT_COST, GRN_UOM<br/>(2-way match)"]
+    Z -->|No| AB["Keep all columns<br/>(3-way match)"]
+
+    AA & AB --> AC["Render Matching Table<br/>with custom-table component"]
+
+    AC --> AD["User can click<br/>'Compute Matching' button"]
+    AD -->|If !disabledAll| O
+
+    style O fill:#f9f,stroke:#333,stroke-width:2px
+    style L fill:#bbf,stroke:#333,stroke-width:2px
+    style L2 fill:#bbf,stroke:#333,stroke-width:2px
+    style M fill:#bfb,stroke:#333,stroke-width:2px
+    style Q fill:#bfb,stroke:#333,stroke-width:2px
 ```
-````
-
-## Proposed deliverable
-
-I will create a file named:
-
-```text
-README.md
-```
-
-It will contain:
-
-1. Project title
-2. Feature explanation
-3. Usage instructions
-4. Share URL explanation
-5. Mermaid flowchart diagram
-6. Example Markdown + Mermaid syntax
-
-Please **toggle to Act mode** and I’ll create the `.md` file.
-"# md" 

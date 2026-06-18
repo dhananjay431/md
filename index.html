@@ -19,13 +19,45 @@
         --bg-primary: #1a1a2e;
         --bg-secondary: #16213e;
         --bg-editor: #0f0f23;
-        --bg-preview: #ffffff;
-        --text-primary: #e0e0e0;
+        --bg-preview: #0f0f23;
+        --text-primary: #ffffff;
+        --text-secondary: #ffffff;
         --text-editor: #d4d4d4;
         --accent: #6c63ff;
         --accent-hover: #5a52d5;
-        --border: #2a2a4a;
+        --border: #ffffff;
         --header-bg: #0d1117;
+        --preview-text: #ffffff;
+        --panel-header-bg: #16213e;
+        --code-bg: #1a1a2e;
+        --blockquote-bg: #16213e;
+        --table-header: #16213e;
+        --mermaid-node-color: #ffffff;
+      }
+
+      body.light-mode {
+        --bg-primary: #f0f2f5;
+        --bg-secondary: #ffffff;
+        --bg-editor: #ffffff;
+        --bg-preview: #ffffff;
+        --code-bg: #f0f0f5;
+        --blockquote-bg: #f8f8ff;
+        --table-header: #f0f0f5;
+        --text-primary: #000000;
+        --text-secondary: #000000;
+        --text-editor: #1a1a2e;
+        --accent: #6c63ff;
+        --accent-hover: #5a52d5;
+        --border: #000000;
+        --header-bg: #ffffff;
+        --preview-text: #000000;
+        --panel-header-bg: #f8f9fa;
+        --mermaid-node-color: #000000;
+      }
+
+      body.dark-mode-preview {
+        --bg-preview: #0f0f23;
+        --preview-text: #e0e0e0;
       }
 
       body {
@@ -109,7 +141,7 @@
       }
 
       .panel-header {
-        background: var(--bg-secondary);
+        background: var(--panel-header-bg);
         padding: 8px 16px;
         font-size: 12px;
         font-weight: 600;
@@ -174,10 +206,19 @@
       #preview {
         flex: 1;
         background: var(--bg-preview);
-        color: #1a1a2a;
-        padding: 30px;
-        overflow-y: auto;
+        color: var(--preview-text);
+        padding: 0;
+        overflow: auto;
         line-height: 1.7;
+        position: relative;
+      }
+
+      .preview-content {
+        transform-origin: top left;
+        transition: transform 0.1s ease;
+        width: 100%;
+        padding: 30px;
+        min-height: 100%;
       }
 
       /* Markdown Preview Styles */
@@ -187,7 +228,7 @@
         padding-bottom: 0.3em;
         margin-top: 1em;
         margin-bottom: 0.6em;
-        color: #1a1a2e;
+        color: inherit;
       }
 
       #preview h2 {
@@ -196,14 +237,14 @@
         padding-bottom: 0.3em;
         margin-top: 0.8em;
         margin-bottom: 0.5em;
-        color: #16213e;
+        color: inherit;
       }
 
       #preview h3 {
         font-size: 1.25em;
         margin-top: 0.7em;
         margin-bottom: 0.4em;
-        color: #2a2a4a;
+        color: inherit;
       }
 
       #preview h4,
@@ -228,7 +269,7 @@
       }
 
       #preview code {
-        background: #f0f0f5;
+        background: var(--code-bg);
         padding: 2px 6px;
         border-radius: 4px;
         font-family: "Fira Code", "Consolas", monospace;
@@ -237,12 +278,13 @@
       }
 
       #preview pre {
-        background: #1a1a2e;
-        color: #d4d4d4;
+        background: var(--bg-editor);
+        color: var(--text-editor);
         padding: 16px;
         border-radius: 8px;
         overflow-x: auto;
         margin-bottom: 1em;
+        border: 1px solid var(--border);
       }
 
       #preview pre code {
@@ -255,8 +297,9 @@
         border-left: 4px solid var(--accent);
         padding: 10px 20px;
         margin: 1em 0;
-        background: #f8f8ff;
-        color: #555;
+        background: var(--blockquote-bg);
+        color: var(--text-primary);
+        opacity: 0.8;
       }
 
       #preview ul,
@@ -277,14 +320,15 @@
 
       #preview th,
       #preview td {
-        border: 1px solid #ddd;
+        border: 1px solid var(--border);
         padding: 10px 14px;
         text-align: left;
       }
 
       #preview th {
-        background: #f0f0f5;
+        background: var(--table-header);
         font-weight: 600;
+        color: var(--text-primary);
       }
 
       #preview img {
@@ -294,20 +338,73 @@
 
       #preview hr {
         border: none;
-        border-top: 2px solid #eee;
+        border-top: 2px solid var(--border);
         margin: 2em 0;
       }
 
       /* Mermaid Diagram Styles */
-      #preview svg[id^="mermaid-diagram-"] {
+      .mermaid-container {
+        width: 100%;
+        overflow: auto;
+        margin-bottom: 2rem;
+        background: transparent;
+        padding: 20px;
         display: block;
-        margin: 0 auto;
       }
 
-      #preview svg {
+      .mermaid {
+        background: transparent;
+        line-height: 1.4;
+        width: fit-content;
+        margin: 0 auto;
+        overflow: visible !important;
+      }
+
+      .mermaid svg {
+        max-width: 100% !important;
+        height: auto !important;
+        display: block;
+        overflow: visible !important;
+      }
+
+      /* Ensure mermaid text is visible and fits */
+      .mermaid .node label,
+      .mermaid .edgeLabel,
+      .mermaid .label,
+      .mermaid .label div {
+        color: var(--mermaid-node-color) !important;
+        font-family: inherit !important;
+        font-size: 14px !important;
+      }
+
+      .mermaid .node rect,
+      .mermaid .node circle,
+      .mermaid .node polygon,
+      .mermaid .node path {
+        fill: var(--bg-secondary) !important;
+        stroke: var(--mermaid-node-color) !important;
+        stroke-width: 1.5px !important;
+      }
+
+      /* Zoom and theme adjustments */
+      .preview-content {
+        transform-origin: top center;
+        transition: transform 0.2s ease;
         width: 100%;
-        max-width: 100%;
-        height: auto;
+        padding: 30px;
+        min-height: 100%;
+      }
+
+      #preview {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #previewContent {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
       }
 
       #preview .mermaid-error {
@@ -401,6 +498,14 @@
     <div class="header">
       <h1>📝 Markdown & Mermaid Live Editor</h1>
       <div class="header-actions">
+        <button
+          class="btn"
+          id="themeToggle"
+          onclick="toggleTheme()"
+          title="Toggle Dark/Light Mode"
+        >
+          🌙 Theme
+        </button>
         <button class="btn" onclick="loadSample()" title="Load sample content">
           📋 Sample
         </button>
@@ -454,16 +559,56 @@
         <div class="drag-handle" id="dragHandle"></div>
       </div>
       <div class="preview-panel">
-        <div
-          class="panel-header"
-          style="cursor: pointer"
-          onclick="downloadPreviewPNG()"
-          title="Click to download preview as PNG"
-        >
+        <div class="panel-header">
           <span><span class="dot"></span>LIVE PREVIEW</span>
-          <span id="diagramCount">0 diagrams</span>
+          <div style="display: flex; gap: 10px; align-items: center">
+            <div
+              class="zoom-controls"
+              style="display: flex; gap: 4px; align-items: center"
+            >
+              <button
+                class="btn"
+                style="padding: 2px 8px"
+                onclick="changeZoom(-0.1)"
+                title="Zoom Out"
+              >
+                -
+              </button>
+              <span
+                id="zoomLevel"
+                style="min-width: 40px; text-align: center; font-size: 11px"
+                >100%</span
+              >
+              <button
+                class="btn"
+                style="padding: 2px 8px"
+                onclick="changeZoom(0.1)"
+                title="Zoom In"
+              >
+                +
+              </button>
+              <button
+                class="btn"
+                style="padding: 2px 8px; margin-left: 4px"
+                onclick="resetZoom()"
+                title="Reset Zoom"
+              >
+                ⟲
+              </button>
+            </div>
+            <button
+              class="btn"
+              onclick="downloadPreviewPNG()"
+              title="Download preview as PNG"
+            >
+              📸 PNG
+            </button>
+            <span id="diagramCount">0 diagrams</span>
+          </div>
         </div>
-        <div id="preview"></div>
+        <div id="preview">
+          <div id="previewContent" class="preview-content"></div>
+        </div>
       </div>
     </div>
 
@@ -474,12 +619,36 @@
 
     <script>
       // Initialize Mermaid
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: "default",
-        securityLevel: "loose",
-        fontFamily: "Segoe UI, sans-serif",
-      });
+      function initMermaid(isLight = true) {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isLight ? "default" : "dark",
+          securityLevel: "loose",
+          fontFamily: "Segoe UI, sans-serif",
+          flowchart: {
+            htmlLabels: true,
+            useMaxWidth: false,
+            padding: 20,
+          },
+          sequence: {
+            useMaxWidth: false,
+          },
+          gantt: {
+            useMaxWidth: false,
+          },
+          class: {
+            useMaxWidth: false,
+          },
+          state: {
+            useMaxWidth: false,
+          },
+          er: {
+            useMaxWidth: false,
+          },
+        });
+      }
+
+      initMermaid(true);
 
       let renderCount = 0;
 
@@ -507,7 +676,13 @@
 
         if (language === "mermaid") {
           const id = "mermaid-diagram-" + renderCount++;
-          return '<div class="mermaid" id="' + id + '">' + esc + "</div>";
+          return (
+            '<div class="mermaid-container"><div class="mermaid" id="' +
+            id +
+            '">' +
+            esc +
+            "</div></div>"
+          );
         }
         // Regular code block
         if (language) {
@@ -551,10 +726,11 @@
           const html = marked.parse(markdown);
 
           // Set preview content
-          preview.innerHTML = html;
+          const previewContent = document.getElementById("previewContent");
+          previewContent.innerHTML = html;
 
           // Find and render mermaid diagrams
-          const mermaidElements = preview.querySelectorAll(".mermaid");
+          const mermaidElements = previewContent.querySelectorAll(".mermaid");
           diagramCount.textContent = `${mermaidElements.length} diagram${mermaidElements.length !== 1 ? "s" : ""}`;
 
           for (const el of mermaidElements) {
@@ -565,7 +741,7 @@
                 graphDefinition,
               );
               el.innerHTML = svg;
-              el.classList.remove("mermaid");
+              // Keep mermaid class for styling
             } catch (err) {
               el.innerHTML = `<div class="mermaid-error"><strong>Mermaid Error:</strong> ${err.message || err}</div>`;
               el.classList.remove("mermaid");
@@ -884,6 +1060,48 @@ classDiagram
             statusText.textContent = "Ready";
           }, 2000);
         }
+      }
+
+      // Theme Toggle
+      function toggleTheme() {
+        document.body.classList.toggle("light-mode");
+        const isLight = document.body.classList.contains("light-mode");
+        const themeBtn = document.getElementById("themeToggle");
+        themeBtn.innerHTML = isLight ? "🌙 Night" : "☀️ Day";
+
+        // Re-initialize mermaid with appropriate theme
+        initMermaid(isLight);
+
+        renderPreview();
+      }
+
+      // Zoom Control
+      let currentZoom = 1;
+      function updateZoomDisplay() {
+        const content = document.getElementById("previewContent");
+        content.style.transform = `scale(${currentZoom})`;
+
+        // Adjust width to allow for scrolling when zoomed in
+        if (currentZoom > 1) {
+          content.style.width = `${100 / currentZoom}%`;
+          content.style.minWidth = "max-content";
+        } else {
+          content.style.width = "100%";
+          content.style.minWidth = "auto";
+        }
+
+        document.getElementById("zoomLevel").textContent =
+          Math.round(currentZoom * 100) + "%";
+      }
+
+      function changeZoom(delta) {
+        currentZoom = Math.max(0.2, Math.min(3, currentZoom + delta));
+        updateZoomDisplay();
+      }
+
+      function resetZoom() {
+        currentZoom = 1;
+        updateZoomDisplay();
       }
 
       // Draggable divider
