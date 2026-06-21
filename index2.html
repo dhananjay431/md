@@ -6,6 +6,12 @@
     <title>Markdown & Mermaid Viewer</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <link
+      id="hljs-theme"
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
     <style>
       * {
@@ -15,48 +21,42 @@
       }
 
       :root {
-        --bg: #0d1117;
-        --bg-card: #161b22;
-        --text: #ffffff;
-        --text-muted: #e6edf3;
+        --bg-primary: #1a1a2e;
+        --bg-secondary: #16213e;
+        --bg-editor: #0f0f23;
+        --bg-preview: #0f0f23;
+        --text-primary: #ffffff;
+        --text-secondary: #ffffff;
+        --text-editor: #d4d4d4;
         --accent: #6c63ff;
         --accent-hover: #5a52d5;
         --border: #ffffff;
+        --header-bg: #0d1117;
+        --preview-text: #ffffff;
+        --panel-header-bg: #16213e;
         --code-bg: #1a1a2e;
-        --code-text: #d4d4d4;
-        --inline-code-bg: #1c2128;
-        --inline-code-text: #ff7b72;
-        --blockquote-bg: #1c2128;
-        --blockquote-border: #6c63ff;
-        --table-header-bg: #1c2128;
-        --table-border: #ffffff;
-        --hr-color: #ffffff;
-        --mermaid-error-bg: #2d0a0e;
-        --mermaid-error-border: #e94560;
-        --mermaid-error-text: #ff7b72;
+        --blockquote-bg: #16213e;
+        --table-header: #16213e;
         --mermaid-node-color: #ffffff;
       }
 
       body.light-mode {
-        --bg: #f0f2f5;
-        --bg-card: #ffffff;
-        --text: #000000;
-        --text-muted: #333;
+        --bg-primary: #f0f2f5;
+        --bg-secondary: #ffffff;
+        --bg-editor: #ffffff;
+        --bg-preview: #ffffff;
+        --code-bg: #f0f0f5;
+        --blockquote-bg: #f8f8ff;
+        --table-header: #f0f0f5;
+        --text-primary: #000000;
+        --text-secondary: #000000;
+        --text-editor: #1a1a2e;
         --accent: #6c63ff;
         --accent-hover: #5a52d5;
         --border: #000000;
-        --code-bg: #f0f0f5;
-        --code-text: #000000;
-        --inline-code-bg: #afb8c133;
-        --inline-code-text: #000000;
-        --blockquote-bg: #f8f8ff;
-        --blockquote-border: #000000;
-        --table-header-bg: #f0f0f5;
-        --table-border: #000000;
-        --hr-color: #000000;
-        --mermaid-error-bg: #ffebe9;
-        --mermaid-error-border: #ff8182;
-        --mermaid-error-text: #cf222e;
+        --header-bg: #ffffff;
+        --preview-text: #000000;
+        --panel-header-bg: #f8f9fa;
         --mermaid-node-color: #000000;
       }
 
@@ -66,8 +66,8 @@
           -apple-system,
           BlinkMacSystemFont,
           sans-serif;
-        background: var(--bg);
-        color: var(--text);
+        background: var(--bg-primary);
+        color: var(--text-primary);
         min-height: 100vh;
         overflow-x: hidden;
       }
@@ -80,7 +80,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        background: var(--bg-card);
+        background: var(--bg-secondary);
         border: 1px solid var(--border);
         border-radius: 12px;
         padding: 8px 12px;
@@ -92,8 +92,8 @@
         width: 36px;
         height: 36px;
         border: 1px solid var(--border);
-        background: var(--bg);
-        color: var(--text);
+        background: var(--bg-primary);
+        color: var(--text-primary);
         border-radius: 8px;
         cursor: pointer;
         font-size: 18px;
@@ -111,7 +111,7 @@
 
       .zoom-toolbar .zoom-level {
         font-size: 13px;
-        color: var(--text-muted);
+        color: var(--text-secondary);
         min-width: 48px;
         text-align: center;
         font-weight: 600;
@@ -137,20 +137,20 @@
 
       .error-container p {
         font-size: 1.1em;
-        color: var(--text-muted);
+        color: var(--text-secondary);
         max-width: 600px;
         line-height: 1.6;
         margin-bottom: 24px;
       }
 
       .error-container code {
-        background: var(--bg-card);
+        background: var(--bg-secondary);
         border: 1px solid var(--border);
         padding: 12px 20px;
         border-radius: 8px;
         font-family: "Fira Code", "Consolas", monospace;
         font-size: 0.85em;
-        color: var(--text);
+        color: var(--text-primary);
         display: block;
         word-break: break-all;
         max-width: 800px;
@@ -176,44 +176,50 @@
 
       /* Content Container */
       #content-wrapper {
-        transform-origin: top left;
-        transition: transform 0.1s ease;
+        display: flex;
+        flex-direction: column;
         width: 100%;
+        overflow: hidden;
         min-height: 100vh;
+        align-items: center;
+        background: var(--bg-preview);
       }
 
       #content {
+        transform-origin: top center;
+        transition: transform 0.1s ease;
         max-width: 900px;
         margin: 0 auto;
         padding: 40px 32px;
         line-height: 1.7;
         width: 100%;
+        color: var(--preview-text);
       }
 
-      /* Content Styles - Dark Theme */
+      /* Content Styles (Synced with index.html Live Preview) */
       #content h1 {
         font-size: 2em;
-        border-bottom: 2px solid var(--hr-color);
+        border-bottom: 2px solid #eee;
         padding-bottom: 0.3em;
         margin-top: 1em;
         margin-bottom: 0.6em;
-        color: var(--text);
+        color: inherit;
       }
 
       #content h2 {
         font-size: 1.5em;
-        border-bottom: 1px solid var(--hr-color);
+        border-bottom: 1px solid #eee;
         padding-bottom: 0.3em;
         margin-top: 0.8em;
         margin-bottom: 0.5em;
-        color: var(--text);
+        color: inherit;
       }
 
       #content h3 {
         font-size: 1.25em;
         margin-top: 0.7em;
         margin-bottom: 0.4em;
-        color: var(--text);
+        color: inherit;
       }
 
       #content h4,
@@ -221,12 +227,20 @@
       #content h6 {
         margin-top: 0.6em;
         margin-bottom: 0.3em;
-        color: var(--text);
+        color: #333;
+      }
+
+      body.dark-mode-preview #content h4,
+      body.dark-mode-preview #content h5,
+      body.dark-mode-preview #content h6,
+      body:not(.light-mode) #content h4,
+      body:not(.light-mode) #content h5,
+      body:not(.light-mode) #content h6 {
+        color: #e0e0e0;
       }
 
       #content p {
         margin-bottom: 1em;
-        color: var(--text);
       }
 
       #content a {
@@ -239,17 +253,17 @@
       }
 
       #content code {
-        background: var(--inline-code-bg);
+        background: var(--code-bg);
         padding: 2px 6px;
         border-radius: 4px;
         font-family: "Fira Code", "Consolas", monospace;
         font-size: 0.9em;
-        color: var(--inline-code-text);
+        color: #e94560;
       }
 
       #content pre {
-        background: var(--code-bg);
-        color: var(--code-text);
+        background: var(--bg-editor);
+        color: var(--text-editor);
         padding: 16px;
         border-radius: 8px;
         overflow-x: auto;
@@ -263,12 +277,18 @@
         padding: 0;
       }
 
+      #content pre code.hljs {
+        background: transparent;
+        padding: 0;
+      }
+
       #content blockquote {
-        border-left: 4px solid var(--blockquote-border);
+        border-left: 4px solid var(--accent);
         padding: 10px 20px;
         margin: 1em 0;
         background: var(--blockquote-bg);
-        color: var(--text-muted);
+        color: var(--text-primary);
+        opacity: 0.8;
       }
 
       #content ul,
@@ -279,7 +299,6 @@
 
       #content li {
         margin-bottom: 0.3em;
-        color: var(--text);
       }
 
       #content table {
@@ -290,19 +309,15 @@
 
       #content th,
       #content td {
-        border: 1px solid var(--table-border);
+        border: 1px solid var(--border);
         padding: 10px 14px;
         text-align: left;
       }
 
       #content th {
-        background: var(--table-header-bg);
+        background: var(--table-header);
         font-weight: 600;
-        color: var(--text);
-      }
-
-      #content td {
-        color: var(--text);
+        color: var(--text-primary);
       }
 
       #content img {
@@ -312,7 +327,7 @@
 
       #content hr {
         border: none;
-        border-top: 2px solid var(--hr-color);
+        border-top: 2px solid var(--border);
         margin: 2em 0;
       }
 
@@ -320,48 +335,70 @@
       .mermaid-container {
         width: 100%;
         overflow: auto;
-        margin-bottom: 2rem;
+        margin: 1.5rem 0;
+        padding: 1.5rem;
+        text-align: center;
         background: transparent;
-        padding: 20px;
-        display: block;
       }
 
       .mermaid {
         background: transparent;
         line-height: 1.4;
-        width: fit-content;
-        margin: 0 auto;
+        display: inline-block;
+        min-width: 100%;
+        text-align: center;
         overflow: visible !important;
       }
 
       .mermaid svg {
         max-width: none !important;
         height: auto !important;
-        display: block;
-        overflow: visible !important;
+        display: inline-block;
+        margin: 0 auto;
       }
 
-      /* Mermaid fix */
+      /* Ensure mermaid text is visible and fits */
+      .mermaid .node label,
+      .mermaid .edgeLabel,
+      .mermaid .label,
+      .mermaid .label div {
+        color: var(--mermaid-node-color) !important;
+        font-family: inherit !important;
+      }
+
       .mermaid .node rect,
       .mermaid .node circle,
       .mermaid .node polygon,
       .mermaid .node path {
-        fill: var(--bg-card) !important;
+        fill: var(--bg-secondary) !important;
         stroke: var(--mermaid-node-color) !important;
       }
 
-      .mermaid .label,
-      .mermaid .label div {
-        color: var(--mermaid-node-color) !important;
+      #content .mermaid-error {
+        color: #e94560;
+        background: #fff0f3;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #e94560;
+        text-align: left;
       }
 
-      #content .mermaid-error {
-        color: var(--mermaid-error-text);
-        background: var(--mermaid-error-bg);
-        padding: 16px;
-        border-radius: 8px;
-        border: 1px solid var(--mermaid-error-border);
-        text-align: left;
+      /* Scrollbar Styles */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: var(--bg-editor);
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 4px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--accent);
       }
 
       /* Loading */
@@ -371,7 +408,7 @@
         justify-content: center;
         min-height: 100vh;
         font-size: 1.2em;
-        color: var(--text-muted);
+        color: var(--text-secondary);
       }
 
       .loading::after {
@@ -389,24 +426,6 @@
         to {
           transform: rotate(360deg);
         }
-      }
-
-      /* Scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      ::-webkit-scrollbar-track {
-        background: var(--bg);
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 4px;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: var(--accent);
       }
 
       /* Print styles */
@@ -442,6 +461,37 @@
 
     <!-- Zoom & Theme Toolbar -->
     <div class="zoom-toolbar" id="zoomToolbar" style="display: none">
+      <select
+        id="codeTheme"
+        class="btn"
+        onchange="changeCodeTheme()"
+        style="
+          padding: 4px 8px;
+          height: 36px;
+          font-size: 11px;
+          background: var(--bg);
+          color: var(--text);
+          border: 1px solid var(--border);
+        "
+      >
+        <option value="auto">Auto Theme</option>
+        <option value="github">GitHub</option>
+        <option value="github-dark">GitHub Dark</option>
+        <option value="dracula">Dracula</option>
+        <option value="monokai">Monokai</option>
+        <option value="atom-one-dark">Atom One Dark</option>
+        <option value="atom-one-light">Atom One Light</option>
+        <option value="solarized-dark">Solarized Dark</option>
+        <option value="solarized-light">Solarized Light</option>
+      </select>
+      <div
+        style="
+          width: 1px;
+          height: 20px;
+          background: var(--border);
+          margin: 0 4px;
+        "
+      ></div>
       <button onclick="toggleTheme()" id="themeToggle" title="Toggle Theme">
         🌙
       </button>
@@ -460,12 +510,58 @@
     </div>
 
     <script>
+      // Theme switching logic for highlight.js
+      const hljsThemes = {
+        github: "github.min.css",
+        "github-dark": "github-dark.min.css",
+        dracula: "dracula.min.css",
+        monokai: "monokai.min.css",
+        "atom-one-dark": "atom-one-dark.min.css",
+        "atom-one-light": "atom-one-light.min.css",
+        "solarized-dark": "base16/solarized-dark.min.css",
+        "solarized-light": "base16/solarized-light.min.css",
+      };
+
+      function updateHljsTheme(isLight) {
+        const themeLink = document.getElementById("hljs-theme");
+        const themeSelect = document.getElementById("codeTheme");
+        const selectedTheme = themeSelect.value;
+
+        let themeFile;
+        if (selectedTheme === "auto") {
+          themeFile = isLight
+            ? hljsThemes["github"]
+            : hljsThemes["github-dark"];
+        } else {
+          themeFile = hljsThemes[selectedTheme];
+        }
+
+        if (themeLink) {
+          themeLink.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${themeFile}`;
+        }
+      }
+
+      function changeCodeTheme() {
+        const isLight = document.body.classList.contains("light-mode");
+        updateHljsTheme(isLight);
+
+        // Re-render to apply new theme to highlighted blocks
+        const markdown = document
+          .getElementById("content")
+          .getAttribute("data-markdown");
+        if (markdown) {
+          renderContent(markdown);
+        }
+      }
+
       // Theme functionality
       function toggleTheme() {
         document.body.classList.toggle("light-mode");
         const isLight = document.body.classList.contains("light-mode");
         const themeBtn = document.getElementById("themeToggle");
         themeBtn.innerHTML = isLight ? "🌙 Night" : "☀️ Day";
+
+        updateHljsTheme(isLight);
 
         // Re-initialize mermaid with appropriate theme
         initMermaid(isLight);
@@ -486,13 +582,15 @@
       const maxZoom = 3;
 
       function updateZoom() {
-        const wrapper = document.getElementById("content-wrapper");
-        wrapper.style.transform = `scale(${currentZoom})`;
+        const content = document.getElementById("content");
+        content.style.transform = `scale(${currentZoom})`;
 
         if (currentZoom > 1) {
-          wrapper.style.width = `${100 / currentZoom}%`;
+          content.style.width = `${100 / currentZoom}%`;
+          content.style.minWidth = "max-content";
         } else {
-          wrapper.style.width = "100%";
+          content.style.width = "100%";
+          content.style.minWidth = "auto";
         }
 
         document.getElementById("zoomLevel").textContent =
@@ -594,6 +692,18 @@
             esc +
             "</div></div>"
           );
+        }
+        if (language && hljs.getLanguage(language)) {
+          try {
+            const highlighted = hljs.highlight(code, { language }).value;
+            return (
+              '<pre><code class="hljs language-' +
+              language +
+              '">' +
+              highlighted +
+              "</code></pre>"
+            );
+          } catch (__) {}
         }
         if (language) {
           return (
@@ -721,22 +831,26 @@
           content.innerHTML = html;
 
           const mermaidElements = content.querySelectorAll(".mermaid");
-          for (const el of mermaidElements) {
-            try {
-              const graphDefinition = el.textContent;
-              const { svg } = await mermaid.render(
-                el.id + "-svg",
-                graphDefinition,
-              );
-              el.innerHTML = svg;
-              el.classList.remove("mermaid");
-            } catch (err) {
-              el.innerHTML =
-                '<div class="mermaid-error"><strong>Mermaid Error:</strong> ' +
-                (err.message || err) +
-                "</div>";
-              el.classList.remove("mermaid");
-            }
+
+          if (mermaidElements.length > 0) {
+            // Small delay to ensure DOM is ready for Mermaid
+            setTimeout(async () => {
+              for (const el of mermaidElements) {
+                try {
+                  const graphDefinition = el.textContent;
+                  const id = el.id + "-svg";
+                  const { svg } = await mermaid.render(id, graphDefinition);
+                  el.innerHTML = svg;
+                } catch (err) {
+                  console.error("Mermaid error:", err);
+                  el.innerHTML =
+                    '<div class="mermaid-error"><strong>Mermaid Error:</strong> ' +
+                    (err.message || "Invalid syntax") +
+                    "</div>";
+                }
+                el.classList.remove("mermaid");
+              }
+            }, 50);
           }
 
           loading.style.display = "none";

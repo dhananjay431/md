@@ -6,6 +6,12 @@
     <title>Markdown & Mermaid Live Editor</title>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <link
+      id="hljs-theme"
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <style>
@@ -199,7 +205,7 @@
       .preview-panel {
         display: flex;
         flex-direction: column;
-        width: 50%;
+        width: 100%;
         overflow: hidden;
       }
 
@@ -293,6 +299,11 @@
         padding: 0;
       }
 
+      #preview pre code.hljs {
+        background: transparent;
+        padding: 0;
+      }
+
       #preview blockquote {
         border-left: 4px solid var(--accent);
         padding: 10px 20px;
@@ -346,25 +357,26 @@
       .mermaid-container {
         width: 100%;
         overflow: auto;
-        margin-bottom: 2rem;
+        margin: 1.5rem 0;
+        padding: 1.5rem;
+        text-align: center;
         background: transparent;
-        padding: 20px;
-        display: block;
       }
 
       .mermaid {
         background: transparent;
         line-height: 1.4;
-        width: fit-content;
-        margin: 0 auto;
+        display: inline-block;
+        min-width: 100%;
+        text-align: center;
         overflow: visible !important;
       }
 
       .mermaid svg {
-        max-width: 100% !important;
+        max-width: none !important;
         height: auto !important;
-        display: block;
-        overflow: visible !important;
+        display: inline-block;
+        margin: 0 auto;
       }
 
       /* Ensure mermaid text is visible and fits */
@@ -374,7 +386,6 @@
       .mermaid .label div {
         color: var(--mermaid-node-color) !important;
         font-family: inherit !important;
-        font-size: 14px !important;
       }
 
       .mermaid .node rect,
@@ -383,7 +394,6 @@
       .mermaid .node path {
         fill: var(--bg-secondary) !important;
         stroke: var(--mermaid-node-color) !important;
-        stroke-width: 1.5px !important;
       }
 
       /* Zoom and theme adjustments */
@@ -498,6 +508,30 @@
     <div class="header">
       <h1>📝 Markdown & Mermaid Live Editor</h1>
       <div class="header-actions">
+        <div
+          class="theme-select-container"
+          style="display: flex; align-items: center; gap: 4px"
+        >
+          <span style="font-size: 11px; color: var(--text-secondary)"
+            >Code:</span
+          >
+          <select
+            id="codeTheme"
+            class="btn"
+            onchange="changeCodeTheme()"
+            style="padding: 4px 8px"
+          >
+            <option value="auto">Auto</option>
+            <option value="github">GitHub</option>
+            <option value="github-dark">GitHub Dark</option>
+            <option value="dracula">Dracula</option>
+            <option value="monokai">Monokai</option>
+            <option value="atom-one-dark">Atom One Dark</option>
+            <option value="atom-one-light">Atom One Light</option>
+            <option value="solarized-dark">Solarized Dark</option>
+            <option value="solarized-light">Solarized Light</option>
+          </select>
+        </div>
         <button
           class="btn"
           id="themeToggle"
@@ -648,7 +682,7 @@
         });
       }
 
-      initMermaid(true);
+      initMermaid(false);
 
       let renderCount = 0;
 
@@ -685,6 +719,19 @@
           );
         }
         // Regular code block
+        if (language && hljs.getLanguage(language)) {
+          try {
+            const highlighted = hljs.highlight(code, { language }).value;
+            return (
+              '<pre><code class="hljs language-' +
+              language +
+              '">' +
+              highlighted +
+              "</code></pre>"
+            );
+          } catch (__) {}
+        }
+
         if (language) {
           return (
             '<pre><code class="language-' +
@@ -731,21 +778,28 @@
 
           // Find and render mermaid diagrams
           const mermaidElements = previewContent.querySelectorAll(".mermaid");
-          diagramCount.textContent = `${mermaidElements.length} diagram${mermaidElements.length !== 1 ? "s" : ""}`;
+          diagramCount.textContent = `${mermaidElements.length} diagram${
+            mermaidElements.length !== 1 ? "s" : ""
+          }`;
 
-          for (const el of mermaidElements) {
-            try {
-              const graphDefinition = el.textContent;
-              const { svg } = await mermaid.render(
-                el.id + "-svg",
-                graphDefinition,
-              );
-              el.innerHTML = svg;
-              // Keep mermaid class for styling
-            } catch (err) {
-              el.innerHTML = `<div class="mermaid-error"><strong>Mermaid Error:</strong> ${err.message || err}</div>`;
-              el.classList.remove("mermaid");
-            }
+          if (mermaidElements.length > 0) {
+            // Small delay to ensure DOM is ready for Mermaid
+            setTimeout(async () => {
+              for (const el of mermaidElements) {
+                try {
+                  const graphDefinition = el.textContent;
+                  const id = el.id + "-svg";
+                  const { svg } = await mermaid.render(id, graphDefinition);
+                  el.innerHTML = svg;
+                } catch (err) {
+                  console.error("Mermaid render error:", err);
+                  el.innerHTML = `<div class="mermaid-error"><strong>Mermaid Error:</strong> ${
+                    err.message || "Invalid diagram syntax"
+                  }</div>`;
+                  el.classList.remove("mermaid");
+                }
+              }
+            }, 50);
           }
 
           statusText.textContent = `Rendered at ${new Date().toLocaleTimeString()}`;
@@ -758,6 +812,43 @@
       function debouncedRender() {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(renderPreview, 300);
+      }
+
+      // Theme switching logic for highlight.js
+      const hljsThemes = {
+        github: "github.min.css",
+        "github-dark": "github-dark.min.css",
+        dracula: "dracula.min.css",
+        monokai: "monokai.min.css",
+        "atom-one-dark": "atom-one-dark.min.css",
+        "atom-one-light": "atom-one-light.min.css",
+        "solarized-dark": "base16/solarized-dark.min.css",
+        "solarized-light": "base16/solarized-light.min.css",
+      };
+
+      function updateHljsTheme(isLight) {
+        const themeLink = document.getElementById("hljs-theme");
+        const themeSelect = document.getElementById("codeTheme");
+        const selectedTheme = themeSelect.value;
+
+        let themeFile;
+        if (selectedTheme === "auto") {
+          themeFile = isLight
+            ? hljsThemes["github"]
+            : hljsThemes["github-dark"];
+        } else {
+          themeFile = hljsThemes[selectedTheme];
+        }
+
+        if (themeLink) {
+          themeLink.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${themeFile}`;
+        }
+      }
+
+      function changeCodeTheme() {
+        const isLight = document.body.classList.contains("light-mode");
+        updateHljsTheme(isLight);
+        renderPreview();
       }
 
       // Event listeners
@@ -1069,6 +1160,8 @@ classDiagram
         const themeBtn = document.getElementById("themeToggle");
         themeBtn.innerHTML = isLight ? "🌙 Night" : "☀️ Day";
 
+        updateHljsTheme(isLight);
+
         // Re-initialize mermaid with appropriate theme
         initMermaid(isLight);
 
@@ -1136,7 +1229,9 @@ classDiagram
       });
 
       // Load sample on start
-      loadSample();
+      document.fonts.ready.then(() => {
+        setTimeout(loadSample, 100);
+      });
     </script>
   </body>
 </html>
