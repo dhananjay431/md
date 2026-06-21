@@ -1,1237 +1,697 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Markdown & Mermaid Live Editor</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
-    <link
-      id="hljs-theme"
-      rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-    />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pako@2/dist/pako.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta name="description" content="This is the online markdown editor with live preview.">
+    <title>Markdown Live Preview</title>
 
-      :root {
-        --bg-primary: #1a1a2e;
-        --bg-secondary: #16213e;
-        --bg-editor: #0f0f23;
-        --bg-preview: #0f0f23;
-        --text-primary: #ffffff;
-        --text-secondary: #ffffff;
-        --text-editor: #d4d4d4;
-        --accent: #6c63ff;
-        --accent-hover: #5a52d5;
-        --border: #ffffff;
-        --header-bg: #0d1117;
-        --preview-text: #ffffff;
-        --panel-header-bg: #16213e;
-        --code-bg: #1a1a2e;
-        --blockquote-bg: #16213e;
-        --table-header: #16213e;
-        --mermaid-node-color: #ffffff;
-      }
+    <!-- Bootstrap theme early to avoid flash -->
+    <script>
+      (function () {
+        try {
+          var THEME_KEY = 'com.markdownlivepreview_theme';
+          var raw = localStorage.getItem(THEME_KEY);
+          var useDark = (raw === null) ? true : (raw === 'dark'); // default dark
+          document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
 
-      body.light-mode {
-        --bg-primary: #f0f2f5;
-        --bg-secondary: #ffffff;
-        --bg-editor: #ffffff;
-        --bg-preview: #ffffff;
-        --code-bg: #f0f0f5;
-        --blockquote-bg: #f8f8ff;
-        --table-header: #f0f0f5;
-        --text-primary: #000000;
-        --text-secondary: #000000;
-        --text-editor: #1a1a2e;
-        --accent: #6c63ff;
-        --accent-hover: #5a52d5;
-        --border: #000000;
-        --header-bg: #ffffff;
-        --preview-text: #000000;
-        --panel-header-bg: #f8f9fa;
-        --mermaid-node-color: #000000;
-      }
+          var href = useDark
+            ? 'css/github-markdown-dark_dimmed.css?v=1.13.0'
+            : 'css/github-markdown-light.css?v=1.13.0';
 
-      body.dark-mode-preview {
-        --bg-preview: #0f0f23;
-        --preview-text: #e0e0e0;
-      }
+          var link = document.createElement('link');
+          link.id = 'gh-markdown-link';
+          link.rel = 'stylesheet';
+          link.type = 'text/css';
+          link.href = href;
+          document.head.appendChild(link);
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
 
-      body {
-        font-family:
-          "Segoe UI",
-          -apple-system,
-          BlinkMacSystemFont,
-          sans-serif;
-        background: var(--bg-primary);
-        color: var(--text-primary);
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
+    <link rel="stylesheet" type="text/css" href="css/style.css?v=1.13.0">
 
-      /* Header */
-      .header {
-        background: var(--header-bg);
-        padding: 10px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-      }
+    <!-- CodeMirror editor -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/continuelist.min.js"></script>
 
-      .header h1 {
-        font-size: 18px;
-        font-weight: 600;
-        background: linear-gradient(135deg, #6c63ff, #e94560);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
+    <!-- Markdown + sanitize -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.11/dist/purify.min.js"></script>
 
-      .header-actions {
-        display: flex;
-        gap: 8px;
-      }
+    <!-- Syntax highlighting (highlight.js) — theme link swapped at runtime -->
+    <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
-      .btn {
-        padding: 6px 14px;
-        border: 1px solid var(--border);
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        border-radius: 6px;
-        cursor: pointer;
-        font-size: 13px;
-        transition: all 0.2s;
-      }
-
-      .btn:hover {
-        background: var(--accent);
-        border-color: var(--accent);
-      }
-
-      .btn-primary {
-        background: var(--accent);
-        border-color: var(--accent);
-      }
-
-      .btn-primary:hover {
-        background: var(--accent-hover);
-      }
-
-      /* Main Container */
-      .container {
-        display: flex;
-        flex: 1;
-        overflow: hidden;
-      }
-
-      /* Editor Panel */
-      .editor-panel {
-        display: flex;
-        flex-direction: column;
-        width: 50%;
-        border-right: 2px solid var(--accent);
-        position: relative;
-      }
-
-      .panel-header {
-        background: var(--panel-header-bg);
-        padding: 8px 16px;
-        font-size: 12px;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--accent);
-        border-bottom: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-shrink: 0;
-      }
-
-      .panel-header .dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--accent);
-        display: inline-block;
-        margin-right: 8px;
-        animation: pulse 2s infinite;
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
-      }
-
-      #editor {
-        flex: 1;
-        background: var(--bg-editor);
-        color: var(--text-editor);
-        border: none;
-        padding: 20px;
-        font-family:
-          "Fira Code", "Cascadia Code", "JetBrains Mono", "Consolas", monospace;
-        font-size: 14px;
-        line-height: 1.7;
-        resize: none;
-        outline: none;
-        tab-size: 2;
-        overflow-y: auto;
-      }
-
-      #editor::placeholder {
-        color: #555;
-      }
-
-      /* Preview Panel */
-      .preview-panel {
-        display: flex;
-        flex-direction: column;
-        width: 100%;
-        overflow: hidden;
-      }
-
-      #preview {
-        flex: 1;
-        background: var(--bg-preview);
-        color: var(--preview-text);
-        padding: 0;
-        overflow: auto;
-        line-height: 1.7;
-        position: relative;
-      }
-
-      .preview-content {
-        transform-origin: top left;
-        transition: transform 0.1s ease;
-        width: 100%;
-        padding: 30px;
-        min-height: 100%;
-      }
-
-      /* Markdown Preview Styles */
-      #preview h1 {
-        font-size: 2em;
-        border-bottom: 2px solid #eee;
-        padding-bottom: 0.3em;
-        margin-top: 1em;
-        margin-bottom: 0.6em;
-        color: inherit;
-      }
-
-      #preview h2 {
-        font-size: 1.5em;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 0.3em;
-        margin-top: 0.8em;
-        margin-bottom: 0.5em;
-        color: inherit;
-      }
-
-      #preview h3 {
-        font-size: 1.25em;
-        margin-top: 0.7em;
-        margin-bottom: 0.4em;
-        color: inherit;
-      }
-
-      #preview h4,
-      #preview h5,
-      #preview h6 {
-        margin-top: 0.6em;
-        margin-bottom: 0.3em;
-        color: #333;
-      }
-
-      #preview p {
-        margin-bottom: 1em;
-      }
-
-      #preview a {
-        color: var(--accent);
-        text-decoration: none;
-      }
-
-      #preview a:hover {
-        text-decoration: underline;
-      }
-
-      #preview code {
-        background: var(--code-bg);
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-family: "Fira Code", "Consolas", monospace;
-        font-size: 0.9em;
-        color: #e94560;
-      }
-
-      #preview pre {
-        background: var(--bg-editor);
-        color: var(--text-editor);
-        padding: 16px;
-        border-radius: 8px;
-        overflow-x: auto;
-        margin-bottom: 1em;
-        border: 1px solid var(--border);
-      }
-
-      #preview pre code {
-        background: none;
-        color: inherit;
-        padding: 0;
-      }
-
-      #preview pre code.hljs {
-        background: transparent;
-        padding: 0;
-      }
-
-      #preview blockquote {
-        border-left: 4px solid var(--accent);
-        padding: 10px 20px;
-        margin: 1em 0;
-        background: var(--blockquote-bg);
-        color: var(--text-primary);
-        opacity: 0.8;
-      }
-
-      #preview ul,
-      #preview ol {
-        padding-left: 2em;
-        margin-bottom: 1em;
-      }
-
-      #preview li {
-        margin-bottom: 0.3em;
-      }
-
-      #preview table {
-        border-collapse: collapse;
-        width: 100%;
-        margin-bottom: 1em;
-      }
-
-      #preview th,
-      #preview td {
-        border: 1px solid var(--border);
-        padding: 10px 14px;
-        text-align: left;
-      }
-
-      #preview th {
-        background: var(--table-header);
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-
-      #preview img {
-        max-width: 100%;
-        border-radius: 8px;
-      }
-
-      #preview hr {
-        border: none;
-        border-top: 2px solid var(--border);
-        margin: 2em 0;
-      }
-
-      /* Mermaid Diagram Styles */
-      .mermaid-container {
-        width: 100%;
-        overflow: auto;
-        margin: 1.5rem 0;
-        padding: 1.5rem;
-        text-align: center;
-        background: transparent;
-      }
-
-      .mermaid {
-        background: transparent;
-        line-height: 1.4;
-        display: inline-block;
-        min-width: 100%;
-        text-align: center;
-        overflow: visible !important;
-      }
-
-      .mermaid svg {
-        max-width: none !important;
-        height: auto !important;
-        display: inline-block;
-        margin: 0 auto;
-      }
-
-      /* Ensure mermaid text is visible and fits */
-      .mermaid .node label,
-      .mermaid .edgeLabel,
-      .mermaid .label,
-      .mermaid .label div {
-        color: var(--mermaid-node-color) !important;
-        font-family: inherit !important;
-      }
-
-      .mermaid .node rect,
-      .mermaid .node circle,
-      .mermaid .node polygon,
-      .mermaid .node path {
-        fill: var(--bg-secondary) !important;
-        stroke: var(--mermaid-node-color) !important;
-      }
-
-      /* Zoom and theme adjustments */
-      .preview-content {
-        transform-origin: top center;
-        transition: transform 0.2s ease;
-        width: 100%;
-        padding: 30px;
-        min-height: 100%;
-      }
-
-      #preview {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-
-      #previewContent {
-        width: 100%;
-        max-width: 900px;
-        margin: 0 auto;
-      }
-
-      #preview .mermaid-error {
-        color: #e94560;
-        background: #fff0f3;
-        padding: 12px;
-        border-radius: 6px;
-        border: 1px solid #e94560;
-      }
-
-      /* Scrollbar Styles */
-      #editor::-webkit-scrollbar,
-      #preview::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      #editor::-webkit-scrollbar-track {
-        background: var(--bg-editor);
-      }
-
-      #editor::-webkit-scrollbar-thumb {
-        background: var(--border);
-        border-radius: 4px;
-      }
-
-      #editor::-webkit-scrollbar-thumb:hover {
-        background: var(--accent);
-      }
-
-      #preview::-webkit-scrollbar-track {
-        background: #f5f5f5;
-      }
-
-      #preview::-webkit-scrollbar-thumb {
-        background: #ccc;
-        border-radius: 4px;
-      }
-
-      #preview::-webkit-scrollbar-thumb:hover {
-        background: #aaa;
-      }
-
-      /* Status Bar */
-      .status-bar {
-        background: var(--header-bg);
-        padding: 4px 16px;
-        display: flex;
-        justify-content: space-between;
-        font-size: 11px;
-        color: #666;
-        border-top: 1px solid var(--border);
-        flex-shrink: 0;
-      }
-
-      /* Responsive */
-      @media (max-width: 768px) {
-        .container {
-          flex-direction: column;
-        }
-        .editor-panel,
-        .preview-panel {
-          width: 100%;
-          height: 50%;
-        }
-        .editor-panel {
-          border-right: none;
-          border-bottom: 2px solid var(--accent);
-        }
-      }
-
-      /* Drag handle */
-      .drag-handle {
-        width: 4px;
-        cursor: col-resize;
-        background: var(--border);
-        position: absolute;
-        right: -2px;
-        top: 0;
-        bottom: 0;
-        z-index: 10;
-        transition: background 0.2s;
-      }
-
-      .drag-handle:hover,
-      .drag-handle.active {
-        background: var(--accent);
-      }
-    </style>
+    <!-- Export PNG -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Mermaid diagrams -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.9.1/mermaid.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
+
   <body>
-    <div class="header">
-      <h1>📝 Markdown & Mermaid Live Editor</h1>
-      <div class="header-actions">
-        <div
-          class="theme-select-container"
-          style="display: flex; align-items: center; gap: 4px"
-        >
-          <span style="font-size: 11px; color: var(--text-secondary)"
-            >Code:</span
-          >
-          <select
-            id="codeTheme"
-            class="btn"
-            onchange="changeCodeTheme()"
-            style="padding: 4px 8px"
-          >
-            <option value="auto">Auto</option>
-            <option value="github">GitHub</option>
+    <header>
+      <div id="menu-items">
+        <div><a href="/">Markdown Live Preview</a></div>
+        <div id="reset-button"><a href="#">Reset</a></div>
+        <div id="copy-button"><a href="#">Copy</a></div>
+        <div id="png-button"><a href="#">Download PNG</a></div>
+        <div id="share-button"><a href="#">Share</a></div>
+        <div id="code-theme-select" class="theme-select">
+          <label for="code-theme">Code theme</label>
+          <select id="code-theme">
             <option value="github-dark">GitHub Dark</option>
-            <option value="dracula">Dracula</option>
+            <option value="github">GitHub Light</option>
             <option value="monokai">Monokai</option>
+            <option value="dracula">Dracula</option>
             <option value="atom-one-dark">Atom One Dark</option>
             <option value="atom-one-light">Atom One Light</option>
+            <option value="nord">Nord</option>
             <option value="solarized-dark">Solarized Dark</option>
             <option value="solarized-light">Solarized Light</option>
+            <option value="vs">VS</option>
+            <option value="vs2015">VS 2015</option>
           </select>
         </div>
-        <button
-          class="btn"
-          id="themeToggle"
-          onclick="toggleTheme()"
-          title="Toggle Dark/Light Mode"
-        >
-          🌙 Theme
-        </button>
-        <button class="btn" onclick="loadSample()" title="Load sample content">
-          📋 Sample
-        </button>
-        <button class="btn" onclick="clearEditor()" title="Clear editor">
-          🗑️ Clear
-        </button>
-        <button
-          class="btn"
-          onclick="copyToClipboard()"
-          title="Copy markdown to clipboard"
-        >
-          📋 Copy
-        </button>
-        <button
-          class="btn btn-primary"
-          onclick="downloadMarkdown()"
-          title="Download as .md file"
-        >
-          💾 Download
-        </button>
-        <button
-          class="btn"
-          onclick="copyShareLink()"
-          title="Copy shareable link to clipboard"
-          style="background: #e94560; border-color: #e94560; color: white"
-        >
-          🔗 Share
-        </button>
-        <button
-          class="btn"
-          onclick="openShareLink()"
-          title="Open shareable full-screen view"
-          style="background: #0d6efd; border-color: #0d6efd; color: white"
-        >
-          ▶ View
-        </button>
+        <div id="mermaid-theme-select" class="theme-select">
+          <label for="mermaid-theme">Mermaid theme</label>
+          <select id="mermaid-theme">
+            <option value="auto">Auto (follow mode)</option>
+            <option value="default">Default</option>
+            <option value="dark">Dark</option>
+            <option value="forest">Forest</option>
+            <option value="neutral">Neutral</option>
+            <option value="base">Base</option>
+          </select>
+        </div>
+        <div id="sync-button">
+          <input type="checkbox" id="sync-scroll-checkbox"><label for="sync-scroll-checkbox">Sync scroll</label>
+          <span style="margin-left:12px;"><input type="checkbox" id="theme-checkbox"><label for="theme-checkbox">Dark mode</label></span>
+        </div>
       </div>
-    </div>
+    </header>
 
-    <div class="container">
-      <div class="editor-panel" id="editorPanel">
-        <div class="panel-header">
-          <span><span class="dot"></span>MARKDOWN EDITOR</span>
-          <span id="charCount">0 chars</span>
+    <div id="container" class="split-container">
+      <div id="edit" class="column editor-pane">
+        <div id="editor-wrapper">
+          <div id="editor"></div>
         </div>
-        <textarea
-          id="editor"
-          placeholder="Type your Markdown here... Use ```mermaid code blocks for diagrams"
-          spellcheck="false"
-        ></textarea>
-        <div class="drag-handle" id="dragHandle"></div>
       </div>
-      <div class="preview-panel">
-        <div class="panel-header">
-          <span><span class="dot"></span>LIVE PREVIEW</span>
-          <div style="display: flex; gap: 10px; align-items: center">
-            <div
-              class="zoom-controls"
-              style="display: flex; gap: 4px; align-items: center"
-            >
-              <button
-                class="btn"
-                style="padding: 2px 8px"
-                onclick="changeZoom(-0.1)"
-                title="Zoom Out"
-              >
-                -
-              </button>
-              <span
-                id="zoomLevel"
-                style="min-width: 40px; text-align: center; font-size: 11px"
-                >100%</span
-              >
-              <button
-                class="btn"
-                style="padding: 2px 8px"
-                onclick="changeZoom(0.1)"
-                title="Zoom In"
-              >
-                +
-              </button>
-              <button
-                class="btn"
-                style="padding: 2px 8px; margin-left: 4px"
-                onclick="resetZoom()"
-                title="Reset Zoom"
-              >
-                ⟲
-              </button>
-            </div>
-            <button
-              class="btn"
-              onclick="downloadPreviewPNG()"
-              title="Download preview as PNG"
-            >
-              📸 PNG
-            </button>
-            <span id="diagramCount">0 diagrams</span>
-          </div>
-        </div>
-        <div id="preview">
-          <div id="previewContent" class="preview-content"></div>
+
+      <div id="split-divider" class="split-divider"></div>
+
+      <div id="preview" class="column preview-pane">
+        <div id="preview-wrapper">
+          <div id="output" class="content markdown-body"></div>
         </div>
       </div>
     </div>
 
-    <div class="status-bar">
-      <span id="statusText">Ready</span>
-      <span>Markdown + Mermaid</span>
-    </div>
+    <footer></footer>
+
+    <style>
+      /* CodeMirror sizing to fill the editor pane */
+      .CodeMirror {
+        height: 100%;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      /* Light (day) theme refinements */
+      .CodeMirror { background-color: #ffffff; color: #24292f; }
+      .CodeMirror-gutters { background-color: #ffffff; border-right: 1px solid #e1e4e8; }
+      .CodeMirror-linenumber { color: #6e7781; }
+      .CodeMirror-cursor { border-left-color: #24292f; }
+      .CodeMirror-selected { background: #dbe9f9; }
+      .CodeMirror-focused .CodeMirror-selected { background: #c8e1ff; }
+      .CodeMirror-line::selection,
+      .CodeMirror-line > span::selection,
+      .CodeMirror-line > span > span::selection { background: #c8e1ff; }
+      .CodeMirror-activeline-background { background: #f6f8fa; }
+      .CodeMirror-matchingbracket { color: #24292f; background: #d0d7de; }
+
+      /* Dark (night) theme — base */
+      [data-theme="dark"] .CodeMirror { background-color: #0d1117; color: #e6edf3; }
+      [data-theme="dark"] .CodeMirror-gutters { background-color: #0d1117; border-right: 1px solid #1f2d3a; }
+      [data-theme="dark"] .CodeMirror-linenumber { color: #6e7681; }
+      [data-theme="dark"] .CodeMirror-cursor { border-left-color: #e6edf3; }
+      [data-theme="dark"] .CodeMirror-selected { background: #264f78; }
+      [data-theme="dark"] .CodeMirror-focused .CodeMirror-selected { background: #1f6feb; }
+      [data-theme="dark"] .CodeMirror-line::selection,
+      [data-theme="dark"] .CodeMirror-line > span::selection,
+      [data-theme="dark"] .CodeMirror-line > span > span::selection { background: #1f6feb; }
+      [data-theme="dark"] .CodeMirror-activeline-background { background: #161b22; }
+      [data-theme="dark"] .CodeMirror-matchingbracket { color: #e6edf3; background: #30363d; }
+
+      /* Dark (night) theme — markdown / syntax token overrides */
+      [data-theme="dark"] .cm-s-default .cm-keyword { color: #ff7b72; }
+      [data-theme="dark"] .cm-s-default .cm-atom { color: #79c0ff; }
+      [data-theme="dark"] .cm-s-default .cm-number { color: #79c0ff; }
+      [data-theme="dark"] .cm-s-default .cm-def { color: #d2a8ff; }
+      [data-theme="dark"] .cm-s-default .cm-variable { color: #e6edf3; }
+      [data-theme="dark"] .cm-s-default .cm-variable-2 { color: #79c0ff; }
+      [data-theme="dark"] .cm-s-default .cm-variable-3 { color: #56d4dd; }
+      [data-theme="dark"] .cm-s-default .cm-property { color: #e6edf3; }
+      [data-theme="dark"] .cm-s-default .cm-operator { color: #e6edf3; }
+      [data-theme="dark"] .cm-s-default .cm-comment { color: #8b949e; font-style: italic; }
+      [data-theme="dark"] .cm-s-default .cm-string { color: #a5d6ff; }
+      [data-theme="dark"] .cm-s-default .cm-string-2 { color: #a5d6ff; }
+      [data-theme="dark"] .cm-s-default .cm-meta { color: #8b949e; }
+      [data-theme="dark"] .cm-s-default .cm-qualifier { color: #8b949e; }
+      [data-theme="dark"] .cm-s-default .cm-builtin { color: #d2a8ff; }
+      [data-theme="dark"] .cm-s-default .cm-bracket { color: #8b949e; }
+      [data-theme="dark"] .cm-s-default .cm-tag { color: #7ee787; }
+      [data-theme="dark"] .cm-s-default .cm-attribute { color: #79c0ff; }
+      [data-theme="dark"] .cm-s-default .cm-header { color: #58a6ff; font-weight: bold; }
+      [data-theme="dark"] .cm-s-default .cm-quote { color: #7ee787; }
+      [data-theme="dark"] .cm-s-default .cm-hr { color: #8b949e; }
+      [data-theme="dark"] .cm-s-default .cm-link { color: #58a6ff; text-decoration: underline; }
+      [data-theme="dark"] .cm-s-default .cm-url { color: #a5d6ff; }
+      [data-theme="dark"] .cm-s-default .cm-formatting { color: #8b949e; }
+      [data-theme="dark"] .cm-s-default .cm-strong { color: #e6edf3; font-weight: bold; }
+      [data-theme="dark"] .cm-s-default .cm-em { color: #e6edf3; font-style: italic; }
+      [data-theme="dark"] .cm-s-default .cm-strikethrough { color: #8b949e; text-decoration: line-through; }
+      [data-theme="dark"] .cm-s-default .cm-error { color: #ff7b72; }
+
+      #png-button { margin-left: 16px; font-weight: bold; }
+      #png-button a { color: #ffd479; }
+      #share-button { margin-left: 16px; }
+      #share-button a { color: #7ee787; font-weight: bold; }
+      #mermaid-theme-select { display: none; }
+      .theme-select { margin-left: 16px; user-select: none; }
+      .theme-select label { margin-right: 4px; }
+      .theme-select select {
+        background-color: #555;
+        color: #fff;
+        border: 1px solid #777;
+        border-radius: 3px;
+        padding: 1px 4px;
+        font-size: 12px;
+        vertical-align: middle;
+      }
+      [data-theme="dark"] .theme-select select { background-color: #2b3038; color: #e6edf3; border-color: #444c56; }
+      .theme-select select:focus { outline: none; }
+    </style>
 
     <script>
-      // Initialize Mermaid
-      function initMermaid(isLight = true) {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: isLight ? "default" : "dark",
-          securityLevel: "loose",
-          fontFamily: "Segoe UI, sans-serif",
-          flowchart: {
-            htmlLabels: true,
-            useMaxWidth: false,
-            padding: 20,
-          },
-          sequence: {
-            useMaxWidth: false,
-          },
-          gantt: {
-            useMaxWidth: false,
-          },
-          class: {
-            useMaxWidth: false,
-          },
-          state: {
-            useMaxWidth: false,
-          },
-          er: {
-            useMaxWidth: false,
-          },
-        });
-      }
+      (function () {
+        'use strict';
 
-      initMermaid(false);
+        var THEME_KEY = 'com.markdownlivepreview_theme';
+        var CONTENT_KEY = 'com.markdownlivepreview_content';
+        var SYNC_KEY = 'com.markdownlivepreview_syncscroll';
+        var CODE_THEME_KEY = 'com.markdownlivepreview_codetheme';
+        var MERMAID_THEME_KEY = 'com.markdownlivepreview_mermaidtheme';
 
-      let renderCount = 0;
+        var DEFAULT_CODE_THEME = 'github-dark';
+        var DEFAULT_MERMAID_THEME = 'auto';
+        var HLJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/';
 
-      // Custom renderer for marked
-      const renderer = new marked.Renderer();
+        var DEFAULT_MARKDOWN = [
+          '# Markdown Live Preview',
+          '',
+          'This is the online markdown editor with **live preview**.',
+          '',
+          '## Features',
+          '',
+          '- Live preview as you type',
+          '- Synced scrolling between editor and preview',
+          '- Light / dark mode (dark by default)',
+          '- Syntax highlight themes',
+          '- Mermaid diagram themes',
+          '- Download preview as PNG',
+          '- Share via link (?text=base64)',
+          '',
+          '## Inline formatting',
+          '',
+          'You can write *italic*, **bold**, `inline code`, ~~strikethrough~~, and [links](https://example.com).',
+          '',
+          '## Code block',
+          '',
+          '```js',
+          'function hello(name) {',
+          '  return `Hello, ${name}!`;',
+          '}',
+          '```',
+          '',
+          '## Mermaid diagram',
+          '',
+          '```mermaid',
+          'graph TD',
+          '    A[Start] --> B{Logged in?}',
+          '    B -->|Yes| C[Dashboard]',
+          '    B -->|No| D[Login]',
+          '    D --> C',
+          '```',
+          '',
+          '## Table',
+          '',
+          '| Name | Role |',
+          '| ---- | ---- |',
+          '| Ada  | Engineer |',
+          '| Linus| Maintainer |',
+          '',
+          '> Blockquote: Markdown is fun.',
+          '',
+          '1. First item',
+          '2. Second item',
+          '3. Third item'
+        ].join('\n');
 
-      // Override code block handler to detect mermaid
-      // marked v9+ passes an object { text, lang } as first argument
-      renderer.code = function (token) {
-        // Support both old (code, language) and new ({ text, lang }) API
-        let code, language;
-        if (typeof token === "object" && token !== null) {
-          code = token.text;
-          language = token.lang;
-        } else {
-          code = token;
-          language = arguments[1];
-        }
+        var editor = null;
+        var output = document.getElementById('output');
+        var preview = document.getElementById('preview');
+        var syncScrollCheckbox = document.getElementById('sync-scroll-checkbox');
+        var themeCheckbox = document.getElementById('theme-checkbox');
+        var ghLink = document.getElementById('gh-markdown-link');
 
-        // Escape HTML entities for safe rendering using string concat to avoid formatter issues
-        const esc = code
-          .replace(/&/g, "&" + "amp;")
-          .replace(/</g, "&" + "lt;")
-          .replace(/>/g, "&" + "gt;");
-
-        if (language === "mermaid") {
-          const id = "mermaid-diagram-" + renderCount++;
-          return (
-            '<div class="mermaid-container"><div class="mermaid" id="' +
-            id +
-            '">' +
-            esc +
-            "</div></div>"
-          );
-        }
-        // Regular code block
-        if (language && hljs.getLanguage(language)) {
+        function getMarkdown() {
+          // Shared link ?text=<url-safe base64> takes priority.
           try {
-            const highlighted = hljs.highlight(code, { language }).value;
-            return (
-              '<pre><code class="hljs language-' +
-              language +
-              '">' +
-              highlighted +
-              "</code></pre>"
-            );
-          } catch (__) {}
+            var p = new URLSearchParams(location.search).get('text');
+            if (p) return base64UrlToUtf8(p);
+          } catch (e) { /* ignore */ }
+          try {
+            return localStorage.getItem(CONTENT_KEY) || DEFAULT_MARKDOWN;
+          } catch (e) {
+            return DEFAULT_MARKDOWN;
+          }
         }
 
-        if (language) {
-          return (
-            '<pre><code class="language-' +
-            language +
-            '">' +
-            esc +
-            "</code></pre>"
-          );
+        // UTF-8 <-> URL-safe base64 (so the value sits cleanly in a query string).
+        function utf8ToBase64Url(str) {
+          var bytes = new TextEncoder().encode(str);
+          var bin = '';
+          for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+          return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
         }
-        return "<pre><code>" + esc + "</code></pre>";
-      };
+        function base64UrlToUtf8(s) {
+          s = s.replace(/-/g, '+').replace(/_/g, '/');
+          var pad = s.length % 4;
+          if (pad) s += '===='.slice(0, 4 - pad);
+          var bin = atob(s);
+          var bytes = new Uint8Array(bin.length);
+          for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          return new TextDecoder().decode(bytes);
+        }
 
-      // Configure marked
-      marked.setOptions({
-        renderer: renderer,
-        gfm: true,
-        breaks: true,
-      });
+        function render(md) {
+          var html = window.marked.parse(md, { breaks: true, gfm: true });
+          // marked emits ```mermaid blocks as <pre><code class="language-mermaid">…</code></pre>.
+          // Convert each to a <div class="mermaid"> so mermaid can render it.
+          html = html.replace(/<pre><code class="language-mermaid">([\s\S]*?)<\/code><\/pre>/g,
+            function (m, code) {
+              // unescape HTML entities produced by marked
+              var txt = decodeEntities(code);
+              return '<div class="mermaid">' + escapeHtml(txt) + '</div>';
+            });
+          var clean = window.DOMPurify.sanitize(html, { ADD_TAGS: ['foreignObject'], ADD_ATTR: ['dominant-baseline', 'text-anchor', 'viewbox', 'preserveaspectratio', 'xmlns:xlink'] });
+          output.innerHTML = clean;
+          highlightCode();
+          renderMermaid();
+        }
 
-      // DOM elements
-      const editor = document.getElementById("editor");
-      const preview = document.getElementById("preview");
-      const charCount = document.getElementById("charCount");
-      const diagramCount = document.getElementById("diagramCount");
-      const statusText = document.getElementById("statusText");
+        function getMermaidThemePref() {
+          try {
+            return localStorage.getItem(MERMAID_THEME_KEY) || DEFAULT_MERMAID_THEME;
+          } catch (e) { return DEFAULT_MERMAID_THEME; }
+        }
 
-      // Debounce timer
-      let debounceTimer;
+        // Resolve to a concrete mermaid theme. "auto" follows the day/night mode
+        // so diagram text stays readable in both themes.
+        function resolveMermaidTheme() {
+          var pref = getMermaidThemePref();
+          if (pref === 'auto') {
+            return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
+          }
+          return pref;
+        }
 
-      // Main render function
-      async function renderPreview() {
-        const markdown = editor.value;
+        function getCodeTheme() {
+          try {
+            return localStorage.getItem(CODE_THEME_KEY) || DEFAULT_CODE_THEME;
+          } catch (e) { return DEFAULT_CODE_THEME; }
+        }
 
-        // Update char count
-        charCount.textContent = `${markdown.length} chars`;
+        // Apply highlight.js to all fenced code blocks in the preview.
+        function highlightCode() {
+          if (!window.hljs) return;
+          var blocks = output.querySelectorAll('pre code');
+          blocks.forEach(function (block) {
+            // skip mermaid containers (already handled) and already-highlighted
+            if (block.className.indexOf('hljs') !== -1) return;
+            try { window.hljs.highlightElement(block); } catch (e) { /* ignore */ }
+          });
+        }
 
-        try {
-          // Parse markdown
-          const html = marked.parse(markdown);
+        function applyCodeTheme(theme) {
+          var link = document.getElementById('hljs-theme');
+          if (link) link.href = HLJS_BASE + theme + '.min.css';
+          try { localStorage.setItem(CODE_THEME_KEY, theme); } catch (e) {}
+        }
 
-          // Set preview content
-          const previewContent = document.getElementById("previewContent");
-          previewContent.innerHTML = html;
+        function escapeHtml(s) {
+          return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function decodeEntities(s) {
+          var t = document.createElement('textarea');
+          t.innerHTML = s;
+          return t.value;
+        }
 
-          // Find and render mermaid diagrams
-          const mermaidElements = previewContent.querySelectorAll(".mermaid");
-          diagramCount.textContent = `${mermaidElements.length} diagram${
-            mermaidElements.length !== 1 ? "s" : ""
-          }`;
-
-          if (mermaidElements.length > 0) {
-            // Small delay to ensure DOM is ready for Mermaid
-            setTimeout(async () => {
-              for (const el of mermaidElements) {
-                try {
-                  const graphDefinition = el.textContent;
-                  const id = el.id + "-svg";
-                  const { svg } = await mermaid.render(id, graphDefinition);
-                  el.innerHTML = svg;
-                } catch (err) {
-                  console.error("Mermaid render error:", err);
-                  el.innerHTML = `<div class="mermaid-error"><strong>Mermaid Error:</strong> ${
-                    err.message || "Invalid diagram syntax"
-                  }</div>`;
-                  el.classList.remove("mermaid");
+        function renderMermaid() {
+          if (!window.mermaid) return;
+          if (!window.mermaid.__initialized) {
+            window.mermaid.initialize({
+              startOnLoad: false,
+              theme: resolveMermaidTheme(),
+              securityLevel: 'loose',
+              fontFamily: 'Helvetica, arial, freesans, clean, sans-serif'
+            });
+            window.mermaid.__initialized = true;
+          }
+          var nodes = output.querySelectorAll('.mermaid:not([data-processed])');
+          if (nodes.length === 0) return;
+          // Keep the raw source so we can re-render on theme change.
+          nodes.forEach(function (n) {
+            if (!n.getAttribute('data-mermaid-src')) {
+              n.setAttribute('data-mermaid-src', n.textContent);
+            }
+          });
+          window.mermaid.run({ nodes: Array.prototype.slice.call(nodes) })
+            .then(function () {
+              nodes.forEach(function (n) { n.setAttribute('data-processed', 'true'); });
+            })
+            .catch(function (err) {
+              nodes.forEach(function (n) {
+                if (!n.querySelector('svg')) {
+                  n.classList.add('mermaid-error');
+                  n.textContent = (err && err.str) ? err.str : String(err);
                 }
-              }
-            }, 50);
+              });
+            });
+        }
+
+        // Re-render all mermaid diagrams (used after a theme/mermaid-theme switch).
+        function rerenderMermaid() {
+          if (!window.mermaid) return;
+          window.mermaid.initialize({
+            startOnLoad: false,
+            theme: resolveMermaidTheme(),
+            securityLevel: 'loose',
+            fontFamily: 'Helvetica, arial, freesans, clean, sans-serif'
+          });
+          var nodes = output.querySelectorAll('.mermaid');
+          nodes.forEach(function (n) {
+            var src = n.getAttribute('data-mermaid-src') || n.textContent;
+            n.classList.remove('mermaid-error');
+            n.removeAttribute('data-processed');
+            n.textContent = src;
+            n.setAttribute('data-mermaid-src', src);
+          });
+          if (nodes.length === 0) return;
+          window.mermaid.run({ nodes: Array.prototype.slice.call(nodes) })
+            .then(function () {
+              nodes.forEach(function (n) { n.setAttribute('data-processed', 'true'); });
+            })
+            .catch(function (err) {
+              nodes.forEach(function (n) {
+                if (!n.querySelector('svg')) {
+                  n.classList.add('mermaid-error');
+                  n.textContent = (err && err.str) ? err.str : String(err);
+                }
+              });
+            });
+        }
+
+        function setTheme(useDark) {
+          document.documentElement.setAttribute('data-theme', useDark ? 'dark' : 'light');
+          if (ghLink) {
+            ghLink.href = useDark
+              ? 'css/github-markdown-dark_dimmed.css?v=1.13.0'
+              : 'css/github-markdown-light.css?v=1.13.0';
+          }
+          themeCheckbox.checked = useDark;
+          try { localStorage.setItem(THEME_KEY, useDark ? 'dark' : 'light'); } catch (e) {}
+          // Re-render diagrams so they pick up the new mermaid theme.
+          if (window.mermaid) rerenderMermaid();
+        }
+
+        // --- Editor ---
+        function initEditor() {
+          editor = window.CodeMirror(document.getElementById('editor'), {
+            value: getMarkdown(),
+            mode: 'markdown',
+            lineNumbers: true,
+            lineWrapping: true,
+            autofocus: true,
+            extraKeys: {
+              'Enter': 'newlineAndIndentContinueMarkdownList',
+              'Tab': function (cm) { cm.replaceSelection('  ', 'end'); }
+            }
+          });
+
+          editor.on('change', function (cm) {
+            var value = cm.getValue();
+            render(value);
+            try { localStorage.setItem(CONTENT_KEY, value); } catch (e) {}
+          });
+
+          // Initial render
+          render(editor.getValue());
+        }
+
+        // --- Buttons ---
+        function initButtons() {
+          var resetBtn = document.getElementById('reset-button');
+          var copyBtn = document.getElementById('copy-button');
+          var pngBtn = document.getElementById('png-button');
+          var shareBtn = document.getElementById('share-button');
+
+          resetBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (window.confirm('Reset the editor to the default content?')) {
+              editor.setValue(DEFAULT_MARKDOWN);
+              try { localStorage.setItem(CONTENT_KEY, DEFAULT_MARKDOWN); } catch (err) {}
+            }
+          });
+
+          copyBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var value = editor.getValue();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(value).then(function () {
+                flash(copyBtn, 'Copied!');
+              }).catch(function () { fallbackCopy(value); });
+            } else {
+              fallbackCopy(value);
+            }
+          });
+
+          function fallbackCopy(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); flash(copyBtn, 'Copied!'); } catch (err) {}
+            document.body.removeChild(ta);
           }
 
-          statusText.textContent = `Rendered at ${new Date().toLocaleTimeString()}`;
-        } catch (err) {
-          statusText.textContent = `Error: ${err.message}`;
+          pngBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (!window.html2canvas) { alert('PNG library still loading, try again in a moment.'); return; }
+            flash(pngBtn, 'Rendering...');
+            var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+            window.html2canvas(output, {
+              scale: 2,
+              backgroundColor: dark ? '#212830' : '#ffffff',
+              useCORS: true
+            }).then(function (canvas) {
+              canvas.toBlob(function (blob) {
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'markdown-preview.png';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                flash(pngBtn, 'Downloaded PNG');
+              }, 'image/png');
+            }).catch(function (err) {
+              alert('PNG export failed: ' + err.message);
+            });
+          });
+
+          shareBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var value = editor.getValue();
+            var b64 = utf8ToBase64Url(value);
+            var base = location.href.split('?')[0];
+            var url = base + '?text=' + b64;
+            function done() { flash(shareBtn, 'Link copied!'); }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(url).then(done).catch(function () { fallbackShare(url); });
+            } else {
+              fallbackShare(url);
+            }
+          });
+
+          function fallbackShare(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); flash(shareBtn, 'Link copied!'); } catch (err) {}
+            document.body.removeChild(ta);
+          }
+
+          function flash(btn, msg) {
+            var link = btn.querySelector('a');
+            if (!link) return;
+            var orig = link.textContent;
+            link.textContent = msg;
+            setTimeout(function () { link.textContent = orig; }, 1200);
+          }
         }
-      }
 
-      // Debounced render
-      function debouncedRender() {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(renderPreview, 300);
-      }
+        // --- Sync scroll ---
+        function initSyncScroll() {
+          var syncing = false;
 
-      // Theme switching logic for highlight.js
-      const hljsThemes = {
-        github: "github.min.css",
-        "github-dark": "github-dark.min.css",
-        dracula: "dracula.min.css",
-        monokai: "monokai.min.css",
-        "atom-one-dark": "atom-one-dark.min.css",
-        "atom-one-light": "atom-one-light.min.css",
-        "solarized-dark": "base16/solarized-dark.min.css",
-        "solarized-light": "base16/solarized-light.min.css",
-      };
+          function ratioScroll(source, target) {
+            if (!syncScrollCheckbox.checked || syncing) return;
+            var sMax = source.scrollHeight - source.clientHeight;
+            var tMax = target.scrollHeight - target.clientHeight;
+            if (sMax <= 0 || tMax <= 0) return;
+            syncing = true;
+            target.scrollTop = (source.scrollTop / sMax) * tMax;
+            syncing = false;
+          }
 
-      function updateHljsTheme(isLight) {
-        const themeLink = document.getElementById("hljs-theme");
-        const themeSelect = document.getElementById("codeTheme");
-        const selectedTheme = themeSelect.value;
+          // Editor scroll container
+          var editorScroll = editor.getScrollInfo ? null : null;
+          // CodeMirror exposes a scroller element
+          var cmScroller = editor.getScrollerElement();
 
-        let themeFile;
-        if (selectedTheme === "auto") {
-          themeFile = isLight
-            ? hljsThemes["github"]
-            : hljsThemes["github-dark"];
+          cmScroller.addEventListener('scroll', function () {
+            ratioScroll(cmScroller, preview);
+          });
+          preview.addEventListener('scroll', function () {
+            ratioScroll(preview, cmScroller);
+          });
+
+          var savedSync;
+          try { savedSync = localStorage.getItem(SYNC_KEY); } catch (e) {}
+          if (savedSync === 'on') {
+            syncScrollCheckbox.checked = true;
+            try { localStorage.setItem(SYNC_KEY, 'on'); } catch (e2) {}
+          }
+          syncScrollCheckbox.addEventListener('change', function () {
+            try { localStorage.setItem(SYNC_KEY, syncScrollCheckbox.checked ? 'on' : 'off'); } catch (e) {}
+          });
+        }
+
+        // --- Theme toggle ---
+        function initThemeToggle() {
+          var useDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          themeCheckbox.checked = useDark;
+          themeCheckbox.addEventListener('change', function () {
+            setTheme(themeCheckbox.checked);
+          });
+        }
+
+        // --- Code + Mermaid theme selectors ---
+        function initThemeSelectors() {
+          var codeSel = document.getElementById('code-theme');
+          var mermaidSel = document.getElementById('mermaid-theme');
+
+          // Restore saved selections.
+          codeSel.value = getCodeTheme();
+          mermaidSel.value = getMermaidThemePref();
+          applyCodeTheme(codeSel.value);
+
+          codeSel.addEventListener('change', function () {
+            applyCodeTheme(codeSel.value);
+            // Re-highlight already-rendered code so the new palette applies cleanly.
+            if (window.hljs) {
+              output.querySelectorAll('pre code').forEach(function (b) {
+                b.removeAttribute('data-highlighted');
+                b.className = b.className.replace(/\bhljs\b/g, '').trim();
+                try { window.hljs.highlightElement(b); } catch (e) {}
+              });
+            }
+          });
+
+          mermaidSel.addEventListener('change', function () {
+            try { localStorage.setItem(MERMAID_THEME_KEY, mermaidSel.value); } catch (e) {}
+            if (window.mermaid) {
+              window.mermaid.__initialized = false; // force re-initialize with new theme
+              rerenderMermaid();
+            }
+          });
+        }
+
+        // --- Split divider drag ---
+        function initSplit() {
+          var container = document.getElementById('container');
+          var edit = document.getElementById('edit');
+          var previewEl = document.getElementById('preview');
+          var divider = document.getElementById('split-divider');
+          var dragging = false;
+
+          divider.addEventListener('mouseenter', function () { divider.classList.add('hover'); });
+          divider.addEventListener('mouseleave', function () { divider.classList.remove('hover'); });
+
+          divider.addEventListener('mousedown', function (e) {
+            dragging = true;
+            divider.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            e.preventDefault();
+          });
+
+          document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            var rect = container.getBoundingClientRect();
+            var x = e.clientX - rect.left;
+            var pct = Math.max(10, Math.min(90, (x / rect.width) * 100));
+            edit.style.width = pct + '%';
+            previewEl.style.width = (100 - pct) + '%';
+            if (editor) editor.refresh();
+          });
+
+          document.addEventListener('mouseup', function () {
+            if (dragging) {
+              dragging = false;
+              divider.classList.remove('active');
+              document.body.style.cursor = '';
+            }
+          });
+        }
+
+        // --- Init ---
+        function init() {
+          window.marked.setOptions({ breaks: true, gfm: true });
+          initEditor();
+          initButtons();
+          initSyncScroll();
+          initThemeToggle();
+          initThemeSelectors();
+          initSplit();
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', init);
         } else {
-          themeFile = hljsThemes[selectedTheme];
+          init();
         }
-
-        if (themeLink) {
-          themeLink.href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/${themeFile}`;
-        }
-      }
-
-      function changeCodeTheme() {
-        const isLight = document.body.classList.contains("light-mode");
-        updateHljsTheme(isLight);
-        renderPreview();
-      }
-
-      // Event listeners
-      editor.addEventListener("input", debouncedRender);
-
-      // Tab support in editor
-      editor.addEventListener("keydown", function (e) {
-        if (e.key === "Tab") {
-          e.preventDefault();
-          const start = this.selectionStart;
-          const end = this.selectionEnd;
-          this.value =
-            this.value.substring(0, start) + "  " + this.value.substring(end);
-          this.selectionStart = this.selectionEnd = start + 2;
-          debouncedRender();
-        }
-      });
-
-      // Load sample content
-      function loadSample() {
-        editor.value = `# Project Architecture
-
-## Overview
-
-This document describes the architecture of our web application system.
-
-## Flow Diagram
-
-\`\`\`mermaid
-flowchart TD
-    A[User] --> B[Web App]
-    B --> C[API Gateway]
-    C --> D[Auth Service]
-    C --> E[Data Service]
-    D --> F[(User DB)]
-    E --> G[(Main DB)]
-    E --> H[Cache Layer]
-    H --> I[Redis]
-\`\`\`
-
-## Sequence Diagram
-
-\`\`\`mermaid
-sequenceDiagram
-    participant U as User
-    participant W as Web App
-    participant A as API
-    participant D as Database
-
-    U->>W: Login Request
-    W->>A: Authenticate
-    A->>D: Query User
-    D-->>A: User Data
-    A-->>W: JWT Token
-    W-->>U: Dashboard
-
-    U->>W: Fetch Data
-    W->>A: GET /api/data
-    A->>D: SELECT * FROM data
-    D-->>A: Results
-    A-->>W: JSON Response
-    W-->>U: Display Data
-\`\`\`
-
-## Key Components
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Frontend | React | User Interface |
-| API | Node.js | Business Logic |
-| Auth | JWT | Authentication |
-| Database | PostgreSQL | Data Storage |
-| Cache | Redis | Performance |
-
-## State Diagram
-
-\`\`\`mermaid
-stateDiagram-v2
-    [*] --> Idle
-    Idle --> Processing : Submit
-    Processing --> Success : OK
-    Processing --> Error : Fail
-    Success --> Idle : Reset
-    Error --> Idle : Retry
-    Idle --> [*] : Logout
-\`\`\`
-
-## Class Diagram
-
-\`\`\`mermaid
-classDiagram
-    class User {
-        +String name
-        +String email
-        +login()
-        +logout()
-    }
-    class Order {
-        +String id
-        +Date date
-        +create()
-        +cancel()
-    }
-    class Product {
-        +String name
-        +Float price
-        +getDetails()
-    }
-    User --> Order : places
-    Order --> Product : contains
-\`\`\`
-
-> **Note:** All services communicate via REST APIs and are deployed using Docker containers.
-
----
-*Last updated: ${new Date().toLocaleDateString()}*
-`;
-
-        renderPreview();
-      }
-
-      // Clear editor
-      function clearEditor() {
-        if (confirm("Are you sure you want to clear the editor?")) {
-          editor.value = "";
-          renderPreview();
-        }
-      }
-
-      // Copy to clipboard
-      function copyToClipboard() {
-        navigator.clipboard.writeText(editor.value).then(() => {
-          statusText.textContent = "Copied to clipboard!";
-          setTimeout(() => {
-            statusText.textContent = "Ready";
-          }, 2000);
-        });
-      }
-
-      // Download as .md file
-      function downloadMarkdown() {
-        const blob = new Blob([editor.value], { type: "text/markdown" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "document.md";
-        a.click();
-        URL.revokeObjectURL(url);
-        statusText.textContent = "Downloaded!";
-      }
-
-      // Download preview as PNG (full content, not just visible area)
-      function downloadPreviewPNG() {
-        const previewEl = document.getElementById("preview");
-        if (!previewEl || !previewEl.innerHTML.trim()) {
-          statusText.textContent = "Nothing to export!";
-          return;
-        }
-        statusText.textContent = "Capturing preview...";
-
-        // Temporarily expand the element to capture full scrollable content
-        const origOverflow = previewEl.style.overflow;
-        const origHeight = previewEl.style.height;
-        const origMaxHeight = previewEl.style.maxHeight;
-        previewEl.style.overflow = "visible";
-        previewEl.style.height = "auto";
-        previewEl.style.maxHeight = "none";
-
-        html2canvas(previewEl, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: "#ffffff",
-          logging: false,
-          scrollY: 0,
-          windowHeight: previewEl.scrollHeight,
-        })
-          .then((canvas) => {
-            // Restore original styles
-            previewEl.style.overflow = origOverflow;
-            previewEl.style.height = origHeight;
-            previewEl.style.maxHeight = origMaxHeight;
-
-            canvas.toBlob((blob) => {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = "preview.png";
-              a.click();
-              URL.revokeObjectURL(url);
-              statusText.textContent = "Preview downloaded as PNG!";
-              setTimeout(() => {
-                statusText.textContent = "Ready";
-              }, 2000);
-            }, "image/png");
-          })
-          .catch((err) => {
-            // Restore original styles on error too
-            previewEl.style.overflow = origOverflow;
-            previewEl.style.height = origHeight;
-            previewEl.style.maxHeight = origMaxHeight;
-            statusText.textContent = "Error: " + err.message;
-          });
-      }
-
-      // Encode markdown to base64 (UTF-8 safe)
-      function encodeToBase64(str) {
-        const bytes = new TextEncoder().encode(str);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        return btoa(binary);
-      }
-
-      // Copy shareable link to clipboard
-      function copyShareLink() {
-        const markdown = editor.value;
-        if (!markdown.trim()) {
-          statusText.textContent = "Nothing to share!";
-          return;
-        }
-        try {
-          const bytes = new TextEncoder().encode(markdown);
-          const compressed = pako.deflate(bytes);
-          let binary = "";
-          for (let i = 0; i < compressed.length; i++) {
-            binary += String.fromCharCode(compressed[i]);
-          }
-          const base64 = btoa(binary)
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-          const shareUrl =
-            window.location.origin +
-            window.location.pathname.replace("index.html", "index2.html") +
-            "#pako:" +
-            base64;
-          navigator.clipboard.writeText(shareUrl).then(() => {
-            statusText.textContent = "Share link copied to clipboard!";
-            setTimeout(() => {
-              statusText.textContent = "Ready";
-            }, 3000);
-          });
-        } catch (err) {
-          const base64 = encodeToBase64(markdown);
-          const shareUrl =
-            window.location.origin +
-            window.location.pathname.replace("index.html", "index2.html") +
-            "?data=" +
-            encodeURIComponent(base64);
-          navigator.clipboard.writeText(shareUrl).then(() => {
-            statusText.textContent = "Share link copied to clipboard!";
-            setTimeout(() => {
-              statusText.textContent = "Ready";
-            }, 3000);
-          });
-        }
-      }
-
-      // Open shareable link in new tab (full-screen viewer)
-      function openShareLink() {
-        const markdown = editor.value;
-        if (!markdown.trim()) {
-          statusText.textContent = "Nothing to share!";
-          return;
-        }
-        try {
-          // Compress with pako and encode to base64
-          const bytes = new TextEncoder().encode(markdown);
-          const compressed = pako.deflate(bytes);
-          let binary = "";
-          for (let i = 0; i < compressed.length; i++) {
-            binary += String.fromCharCode(compressed[i]);
-          }
-          const base64 = btoa(binary)
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-          const shareUrl =
-            window.location.origin +
-            window.location.pathname.replace("index.html", "index2.html") +
-            "#pako:" +
-            base64;
-          window.open(shareUrl, "_blank");
-          statusText.textContent = "Share link opened!";
-          setTimeout(() => {
-            statusText.textContent = "Ready";
-          }, 2000);
-        } catch (err) {
-          // Fallback: plain base64
-          const base64 = encodeToBase64(markdown);
-          const shareUrl =
-            window.location.origin +
-            window.location.pathname.replace("index.html", "index2.html") +
-            "?data=" +
-            encodeURIComponent(base64);
-          window.open(shareUrl, "_blank");
-          statusText.textContent = "Share link opened!";
-          setTimeout(() => {
-            statusText.textContent = "Ready";
-          }, 2000);
-        }
-      }
-
-      // Theme Toggle
-      function toggleTheme() {
-        document.body.classList.toggle("light-mode");
-        const isLight = document.body.classList.contains("light-mode");
-        const themeBtn = document.getElementById("themeToggle");
-        themeBtn.innerHTML = isLight ? "🌙 Night" : "☀️ Day";
-
-        updateHljsTheme(isLight);
-
-        // Re-initialize mermaid with appropriate theme
-        initMermaid(isLight);
-
-        renderPreview();
-      }
-
-      // Zoom Control
-      let currentZoom = 1;
-      function updateZoomDisplay() {
-        const content = document.getElementById("previewContent");
-        content.style.transform = `scale(${currentZoom})`;
-
-        // Adjust width to allow for scrolling when zoomed in
-        if (currentZoom > 1) {
-          content.style.width = `${100 / currentZoom}%`;
-          content.style.minWidth = "max-content";
-        } else {
-          content.style.width = "100%";
-          content.style.minWidth = "auto";
-        }
-
-        document.getElementById("zoomLevel").textContent =
-          Math.round(currentZoom * 100) + "%";
-      }
-
-      function changeZoom(delta) {
-        currentZoom = Math.max(0.2, Math.min(3, currentZoom + delta));
-        updateZoomDisplay();
-      }
-
-      function resetZoom() {
-        currentZoom = 1;
-        updateZoomDisplay();
-      }
-
-      // Draggable divider
-      const dragHandle = document.getElementById("dragHandle");
-      const editorPanel = document.getElementById("editorPanel");
-      let isDragging = false;
-
-      dragHandle.addEventListener("mousedown", (e) => {
-        isDragging = true;
-        dragHandle.classList.add("active");
-        document.body.style.cursor = "col-resize";
-        document.body.style.userSelect = "none";
-        e.preventDefault();
-      });
-
-      document.addEventListener("mousemove", (e) => {
-        if (!isDragging) return;
-        const container = document.querySelector(".container");
-        const containerRect = container.getBoundingClientRect();
-        const percentage =
-          ((e.clientX - containerRect.left) / containerRect.width) * 100;
-        if (percentage > 20 && percentage < 80) {
-          editorPanel.style.width = percentage + "%";
-        }
-      });
-
-      document.addEventListener("mouseup", () => {
-        isDragging = false;
-        dragHandle.classList.remove("active");
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-      });
-
-      // Load sample on start
-      document.fonts.ready.then(() => {
-        setTimeout(loadSample, 100);
-      });
+      })();
     </script>
   </body>
 </html>
